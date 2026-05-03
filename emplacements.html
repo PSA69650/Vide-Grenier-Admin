@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Emplacements</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #273c75; --secondary: #fbc531; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); padding: 20px; margin: 0; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .header-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h2 { color: var(--primary); border-left: 5px solid var(--secondary); padding-left: 15px; margin: 0; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: var(--primary); color: white; }
+        
+        .btn { padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
+        .btn-add { background: var(--success); }
+        .btn-edit { background: var(--secondary); color: var(--primary); }
+        .btn-delete { background: var(--danger); }
+        .btn-back { background: #7f8c8d; text-decoration: none; display: inline-block; margin-bottom: 10px; font-size: 0.8rem; }
+
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
+        .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 10px; max-width: 450px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="menu_admin.html" class="btn btn-back">⬅ Retour Menu</a>
+    <div class="header-box">
+        <h2>Inventaire des Emplacements</h2>
+        <button class="btn btn-add" onclick="ouvrirModale()">+ Ajouter une place</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Zone / Allée</th>
+                <th>Numéro</th>
+                <th>Taille (m)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="listeEmplacements">
+            <!-- Injecté par JS -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Modale Formulaire -->
+<div id="modalEmp" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitre">Nouvel Emplacement</h3>
+        <input type="hidden" id="empId">
+        <input type="text" id="empZone" placeholder="Zone (ex: Allée A)">
+        <input type="text" id="empNumero" placeholder="Numéro de place">
+        <input type="number" id="empTaille" placeholder="Taille en mètres">
+        <div style="text-align: right; margin-top: 15px;">
+            <button class="btn" style="background:#bdc3c7;" onclick="fermerModale()">Annuler</button>
+            <button class="btn btn-add" onclick="enregistrerEmplacement()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://dawnqgtitjrqmqnnrhky.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let cacheEmplacements = [];
+
+    window.onload = async () => {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) window.location.replace("admin.html");
+        chargerEmplacements();
+    };
+
+    async function chargerEmplacements() {
+        const { data, error } = await _supabase.from('emplacements').select('*').order('zone').order('numero_emplacement');
+        if (error) return alert(error.message);
+        cacheEmplacements = data;
+        
+        document.getElementById('listeEmplacements').innerHTML = data.map(e => `
+            <tr>
+                <td><b>${e.zone}</b></td>
+                <td>${e.numero_emplacement}</td>
+                <td>${e.taille} m</td>
+                <td>
+                    <button class="btn btn-edit" onclick="editer('${e.id}')">✏️</button>
+                    <button class="btn btn-delete" onclick="supprimer('${e.id}')">🗑️</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function enregistrerEmplacement() {
+        const id = document.getElementById('empId').value;
+        const payload = {
+            zone: document.getElementById('empZone').value,
+            numero_emplacement: document.getElementById('empNumero').value,
+            taille: parseFloat(document.getElementById('empTaille').value)
+        };
+
+        const { error } = id 
+            ? await _supabase.from('emplacements').update(payload).eq('id', id)
+            : await _supabase.from('emplacements').insert([payload]);
+
+        if (error) alert("Erreur : " + error.message);
+        else { fermerModale(); chargerEmplacements(); }
+    }
+
+    async function supprimer(id) {
+        if (confirm("Supprimer cet emplacement ?")) {
+            await _supabase.from('emplacements').delete().eq('id', id);
+            chargerEmplacements();
+        }
+    }
+
+    function ouvrirModale() {
+        document.getElementById('modalEmp').style.display = 'block';
+        document.getElementById('empId').value = "";
+        document.getElementById('empZone').value = "";
+        document.getElementById('empNumero').value = "";
+        document.getElementById('empTaille').value = "";
+        document.getElementById('modalTitre').innerText = "Nouvel Emplacement";
+    }
+
+    function editer(id) {
+        const e = cacheEmplacements.find(x => x.id === id);
+        ouvrirModale();
+        document.getElementById('modalTitre').innerText = "Modifier la place " + e.numero_emplacement;
+        document.getElementById('empId').value = e.id;
+        document.getElementById('empZone').value = e.zone;
+        document.getElementById('empNumero').value = e.numero_emplacement;
+        document.getElementById('empTaille').value = e.taille;
+    }
+
+    function fermerModale() { document.getElementById('modalEmp').style.display = 'none'; }
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des Participants - Diagnostic</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 25px; border-radius: 12px; shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #debug-box { background: #333; color: #00ff00; padding: 10px; font-family: monospace; font-size: 12px; margin-bottom: 20px; border-radius: 5px; max-height: 150px; overflow-y: auto; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Liste des Participants</h2>
+    
+    <!-- Zone de diagnostic pour comprendre pourquoi ça bloque -->
+    <div id="debug-box">Initialisation du diagnostic...</div>
+    
+    <div id="status">Vérification de l'identité...</div>
+    
+    <table id="tableData" class="hidden">
+        <thead>
+            <tr><th>Nom & Prénom</th><th>Email</th><th>Ville</th></tr>
+        </thead>
+        <tbody id="corpsTableau"></tbody>
+    </table>
+</div>
+
+<script>
+    const debug = (msg) => {
+        const box = document.getElementById('debug-box');
+        box.innerHTML += `> ${msg}<br>`;
+        console.log(msg);
+    };
+
+    const SUPABASE_URL = "https://dawnqgtitjrqmqnnrhky.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
+
+    // CONFIGURATION AVEC PERSISTENCE FORCÉE
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+        }
+    });
+
+    debug("Client Supabase créé.");
+
+    // ÉCOUTEUR D'ÉTAT
+    _supabase.auth.onAuthStateChange(async (event, session) => {
+        debug(`Événement détecté : ${event}`);
+        
+        if (session) {
+            debug(`Session trouvée pour : ${session.user.email}`);
+            document.getElementById('status').classList.add('hidden');
+            document.getElementById('tableData').classList.remove('hidden');
+            chargerDonnees();
+        } else {
+            debug("Aucune session active.");
+            // On attend un peu avant de rediriger pour te laisser lire le debug
+            document.getElementById('status').innerHTML = "<b style='color:red;'>Accès refusé. Redirection dans 3s...</b>";
+            setTimeout(() => {
+                window.location.replace("admin.html");
+            }, 3000);
+        }
+    });
+
+    async function chargerDonnees() {
+        debug("Tentative de chargement des données...");
+        const { data, error } = await _supabase.from('participants').select('*').order('nom');
+        
+        if (error) {
+            debug(`ERREUR DB : ${error.message}`);
+            return;
+        }
+        
+        debug(`${data.length} participants récupérés.`);
+        const corps = document.getElementById('corpsTableau');
+        corps.innerHTML = data.map(p => `
+            <tr>
+                <td>${(p.nom || '').toUpperCase()} ${p.prenom || ''}</td>
+                <td>${p.email || ''}</td>
+                <td>${p.adresse_ville || ''}</td>
+            </tr>
+        `).join('');
+    }
+</script>
+</body>
+</html>

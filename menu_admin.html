@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Administration - Les Ginettes</title>
+    <!-- SDK Supabase nécessaire pour la vérification de session et déconnexion -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #273c75;
+            --secondary: #fbc531;
+            --danger: #e74c3c;
+            --bg: #f4f7f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            padding: 40px 20px;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 { color: white; margin: 0; font-size: 1.8rem; }
+        h2 { color: var(--primary); margin-bottom: 30px; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 35px;
+            border-radius: 15px;
+            text-decoration: none;
+            color: var(--primary);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            border-bottom: 5px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            border-bottom: 5px solid var(--secondary);
+        }
+
+        .icon { font-size: 3rem; margin-bottom: 15px; }
+        .card-title { font-size: 1.2rem; font-weight: bold; }
+
+        .btn-logout {
+            margin-top: 50px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn-logout:hover { opacity: 0.9; transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Espace Administration</h1>
+</div>
+
+<div class="container">
+    <h2>Que souhaitez-vous gérer aujourd'hui ?</h2>
+
+    <div class="grid">
+        <!-- Gestion des Réservations -->
+        <a href="reservations.html" class="card">
+            <div class="icon">📅</div>
+            <div class="card-title">Réservations</div>
+            <p style="color: #666; font-size: 0.9rem;">Valider les dossiers et métrages</p>
+        </a>
+
+        <!-- Gestion des Participants -->
+        <a href="participants.html" class="card">
+            <div class="icon">👥</div>
+            <div class="card-title">Participants</div>
+            <p style="color: #666; font-size: 0.9rem;">Liste, ajouts et modifications</p>
+        </a>
+
+        <!-- Gestion des Emplacements -->
+        <a href="emplacements.html" class="card">
+            <div class="icon">📍</div>
+            <div class="card-title">Emplacements</div>
+            <p style="color: #666; font-size: 0.9rem;">Plan et numérotation des places</p>
+        </a>
+    </div>
+
+    <button class="btn-logout" onclick="seDeconnecter()">Se déconnecter</button>
+</div>
+
+<script>
+    // 1. Configuration de Supabase
+    const SUPABASE_URL = "https://dawnqgtitjrqmqnnrhky.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
+
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // 2. Vérification automatique de session
+    window.onload = async () => {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (session) {
+            // Redirection vers le menu si déjà connecté
+            window.location.replace("menu_admin.html");
+        }
+    };
+
+    // 3. Fonction de connexion déclenchée par le bouton
+    async function seConnecter() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const btn = document.getElementById('authBtn');
+
+        btn.innerText = "Chargement...";
+        btn.disabled = true;
+
+        try {
+            const { error } = await _supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            
+            // Redirection en cas de succès
+            window.location.replace("menu_admin.html");
+        } catch (err) {
+            alert("Erreur de connexion : " + err.message);
+            btn.innerText = "Se connecter";
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>
