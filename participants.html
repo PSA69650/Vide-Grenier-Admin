@@ -107,7 +107,7 @@
     _supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
             if (!session) {
-                window.location.replace("admin.html");[cite: 4]
+                window.location.replace("admin.html");
             } else {
                 chargerDonnees();
             }
