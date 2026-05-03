@@ -128,19 +128,22 @@
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Sécurité : Si l'utilisateur n'est PAS connecté, on le renvoie au login
-    window.onload = async () => {
-        const { data: { session } } = await _supabase.auth.getSession();
-        if (!session) {
-            window.location.replace("admin.html");
+    // ÉCOUTEUR D'ÉTAT : Plus fiable que window.onload sur GitHub
+    _supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+            if (!session) {
+                // On ne redirige QUE si l'initialisation confirme l'absence de session
+                console.log("Aucune session détectée, retour au login.");
+                window.location.replace("admin.html");[cite: 4]
+            } else {
+                console.log("Session confirmée : Accès au menu.");
+            }
         }
-    };
+    });
 
     async function seDeconnecter() {
-        const { error } = await _supabase.auth.signOut();
-        if (!error) {
-            window.location.replace("admin.html");
-        }
+        await _supabase.auth.signOut();
+        window.location.replace("admin.html");[cite: 4]
     }
 </script>
 </body>
