@@ -124,40 +124,22 @@
 </div>
 
 <script>
-    // 1. Configuration de Supabase
     const SUPABASE_URL = "https://dawnqgtitjrqmqnnrhky.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
-
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // 2. Vérification automatique de session
+    // Sécurité : Si l'utilisateur n'est PAS connecté, on le renvoie au login
     window.onload = async () => {
         const { data: { session } } = await _supabase.auth.getSession();
-        if (session) {
-            // Redirection vers le menu si déjà connecté
-            window.location.replace("menu_admin.html");
+        if (!session) {
+            window.location.replace("admin.html");
         }
     };
 
-    // 3. Fonction de connexion déclenchée par le bouton
-    async function seConnecter() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const btn = document.getElementById('authBtn');
-
-        btn.innerText = "Chargement...";
-        btn.disabled = true;
-
-        try {
-            const { error } = await _supabase.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-            
-            // Redirection en cas de succès
-            window.location.replace("menu_admin.html");
-        } catch (err) {
-            alert("Erreur de connexion : " + err.message);
-            btn.innerText = "Se connecter";
-            btn.disabled = false;
+    async function seDeconnecter() {
+        const { error } = await _supabase.auth.signOut();
+        if (!error) {
+            window.location.replace("admin.html");
         }
     }
 </script>
