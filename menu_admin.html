@@ -128,22 +128,25 @@
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ÉCOUTEUR D'ÉTAT : Plus fiable que window.onload sur GitHub
+    // On écoute les changements d'état de connexion
     _supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        // 'INITIAL_SESSION' est l'événement déclenché au tout premier chargement
+        if (event === 'INITIAL_SESSION') {
             if (!session) {
-                // On ne redirige QUE si l'initialisation confirme l'absence de session
-                console.log("Aucune session détectée, retour au login.");
-                window.location.replace("admin.html");[cite: 4]
-            } else {
-                console.log("Session confirmée : Accès au menu.");
+                // Seulement si l'initialisation confirme qu'il n'y a personne
+                console.log("Accès refusé : aucune session trouvée.");
+                window.location.replace("admin.html");[cite: 3, 4]
             }
+        }
+        
+        // Si l'utilisateur se déconnecte volontairement
+        if (event === 'SIGNED_OUT') {
+            window.location.replace("admin.html");[cite: 4]
         }
     });
 
     async function seDeconnecter() {
         await _supabase.auth.signOut();
-        window.location.replace("admin.html");[cite: 4]
     }
 </script>
 </body>

@@ -30,11 +30,12 @@
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // Au chargement, on vérifie si une session existe DÉJÀ
     window.onload = async () => {
-        // On vérifie la session une seule fois au chargement
         const { data: { session } } = await _supabase.auth.getSession();
         if (session) {
-            window.location.replace("menu_admin.html");[cite: 4]
+            // Si session présente, on va au menu et on arrête le script ici
+            window.location.replace("menu_admin.html");[cite: 3, 4]
         }
     };
 
@@ -43,7 +44,7 @@
         const password = document.getElementById('password').value;
         const btn = document.getElementById('authBtn');
 
-        btn.innerText = "Connexion...";
+        btn.innerText = "Vérification...";
         btn.disabled = true;
 
         const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
@@ -53,8 +54,8 @@
             btn.innerText = "Se connecter";
             btn.disabled = false;
         } else {
-            // Succès : redirection directe
-            window.location.replace("menu_admin.html");[cite: 4]
+            // Connexion réussie : direction le menu
+            window.location.replace("menu_admin.html");
         }
     }
 </script>
