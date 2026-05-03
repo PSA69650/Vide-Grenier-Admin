@@ -9,38 +9,41 @@
         :root { --primary: #273c75; --secondary: #fbc531; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        h2 { color: var(--primary); margin: 0; }
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         
         /* Tableau */
-        .table-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid #ddd; }
+        table { width: 100%; border-collapse: collapse; background: white; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: var(--primary); color: white; position: sticky; top: 0; }
+        th { background: var(--primary); color: white; }
         tr:hover { background-color: #f9f9f9; }
 
         /* Boutons */
-        .btn { padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; }
+        .btn { padding: 10px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
         .btn-add { background: var(--success); }
         .btn-edit { background: var(--secondary); color: var(--primary); }
-        .btn-back { background: #7f8c8d; text-decoration: none; display: inline-block; margin-bottom: 10px; color: white; padding: 5px 10px; border-radius: 4px; }
+        .btn-back { background: #7f8c8d; text-decoration: none; padding: 8px 12px; font-size: 0.9rem; border-radius: 6px; color: white; }
 
-        /* Modale Formulaire */
+        /* Modale */
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: white; margin: 2% auto; padding: 25px; border-radius: 10px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
-        .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .form-group { display: flex; flex-direction: column; margin-bottom: 10px; }
-        .full-width { grid-column: span 2; }
-        label { font-weight: bold; margin-bottom: 5px; color: var(--primary); }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+        .modal-content { background: white; margin: 3% auto; padding: 25px; border-radius: 10px; width: 90%; max-width: 700px; max-height: 85vh; overflow-y: auto; }
+        
+        /* Formulaire en grille */
+        .grid-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .full { grid-column: span 2; }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; color: var(--primary); }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <a href="menu_admin.html" class="btn-back">⬅ Retour au Menu</a>
     <div class="header-actions">
-        <h2>Registre des Participants</h2>
+        <div>
+            <a href="menu_admin.html" class="btn-back">⬅ Retour au Menu</a>
+            <h2 style="margin: 10px 0; color: var(--primary);">Registre des Participants</h2>
+        </div>
         <button class="btn btn-add" onclick="ouvrirModale()">+ Ajouter un participant</button>
     </div>
 
@@ -50,35 +53,35 @@
                 <tr>
                     <th>Nom & Prénom</th>
                     <th>Contact</th>
-                    <th>Localisation</th>
-                    <th>Statut Adhérent</th>
+                    <th>Adresse</th>
+                    <th>Adhérent</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="corpsTableau">
-                <tr><td colspan="5">Vérification de la session...</td></tr>
+                <tr><td colspan="5" style="text-align:center;">Vérification de l'accès...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
-<!-- Modale d'ajout / modification -->
+<!-- Modale Participant -->
 <div id="modalParticipant" class="modal">
     <div class="modal-content">
-        <h3 id="modalTitre">Nouveau Participant</h3>
+        <h3 id="modalTitre" style="margin-top:0; color:var(--primary);">Nouveau Participant</h3>
         <input type="hidden" id="editId">
         
         <div class="grid-form">
             <div class="form-group"><label>Nom *</label><input type="text" id="pNom" required></div>
             <div class="form-group"><label>Prénom *</label><input type="text" id="pPrenom" required></div>
-            <div class="form-group full-width"><label>Email *</label><input type="email" id="pEmail" required></div>
+            <div class="form-group full"><label>Email (unique) *</label><input type="email" id="pEmail" required></div>
             <div class="form-group"><label>Téléphone</label><input type="text" id="pTel"></div>
-            <div class="form-group"><label>N° Adhérent</label><input type="text" id="pNumAdherent"></div>
-            <div class="form-group full-width"><label>Voie / Rue</label><input type="text" id="pVoie"></div>
+            <div class="form-group"><label>Numéro Adhérent</label><input type="text" id="pNumAdherent"></div>
+            <div class="form-group full"><label>Voie / Rue</label><input type="text" id="pVoie"></div>
             <div class="form-group"><label>Code Postal</label><input type="text" id="pCP"></div>
             <div class="form-group"><label>Ville</label><input type="text" id="pVille"></div>
-            <div class="form-group full-width">
-                <label>Membre de l'association ?</label>
+            <div class="form-group full">
+                <label>Est membre de l'association ?</label>
                 <select id="pEstMembre">
                     <option value="false">Non</option>
                     <option value="true">Oui</option>
@@ -86,9 +89,9 @@
             </div>
         </div>
 
-        <div style="text-align: right; margin-top: 20px;">
+        <div style="text-align: right; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px;">
             <button class="btn" style="background:#bdc3c7;" onclick="fermerModale()">Annuler</button>
-            <button id="saveBtn" class="btn btn-add" onclick="enregistrer()">Enregistrer les données</button>
+            <button id="saveBtn" class="btn btn-add" onclick="enregistrer()">Enregistrer les modifications</button>
         </div>
     </div>
 </div>
@@ -98,9 +101,9 @@
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let listeLocale = [];
+    let listeParticipants = [];
 
-    // GESTION DE LA SESSION (Casse la boucle GitHub)
+    // Sécurité de session robuste pour GitHub Pages
     _supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
             if (!session) {
@@ -113,19 +116,26 @@
 
     async function chargerDonnees() {
         const { data, error } = await _supabase.from('participants').select('*').order('nom');
-        if (error) { alert("Erreur : " + error.message); return; }
-        listeLocale = data;
+        if (error) {
+            alert("Erreur lors de la récupération : " + error.message);
+            return;
+        }
+        listeParticipants = data;
         afficherTableau(data);
     }
 
     function afficherTableau(data) {
         const corps = document.getElementById('corpsTableau');
+        if (data.length === 0) {
+            corps.innerHTML = "<tr><td colspan='5' style='text-align:center;'>Aucun participant enregistré.</td></tr>";
+            return;
+        }
         corps.innerHTML = data.map(p => `
             <tr>
                 <td><b>${p.nom.toUpperCase()}</b> ${p.prenom}</td>
-                <td>${p.email}<br><small>${p.telephone || ''}</small></td>
-                <td>${p.adresse_ville || '-'}<br><small>${p.adresse_cp || ''}</small></td>
-                <td>${p.est_membre ? '✅ Membre ('+p.num_adherent+')' : '❌ Non'}</td>
+                <td><small>${p.email}</small><br>${p.telephone || ''}</td>
+                <td><small>${p.adresse_voie || ''}</small><br>${p.adresse_cp || ''} ${p.adresse_ville || ''}</td>
+                <td>${p.est_membre ? '✅ ('+ (p.num_adherent || 'Membre') +')' : '❌ Non'}</td>
                 <td><button class="btn btn-edit" onclick="preparerModif('${p.id}')">Modifier</button></td>
             </tr>
         `).join('');
@@ -146,28 +156,38 @@
             est_membre: document.getElementById('pEstMembre').value === "true"
         };
 
+        if (!p.nom || !p.prenom || !p.email) { alert("Nom, Prénom et Email sont obligatoires."); return; }
+
         btn.disabled = true;
+        btn.innerText = "Traitement...";
+
         const { error } = id 
             ? await _supabase.from('participants').update(p).eq('id', id)
             : await _supabase.from('participants').insert([p]);
 
-        if (error) { alert("Erreur : " + error.message); btn.disabled = false; }
-        else { fermerModale(); chargerDonnees(); btn.disabled = false; }
+        if (error) {
+            alert("Erreur : " + error.message);
+            btn.disabled = false;
+            btn.innerText = "Enregistrer";
+        } else {
+            fermerModale();
+            chargerDonnees();
+            btn.disabled = false;
+        }
     }
 
-    // INTERFACE
     function ouvrirModale() {
         document.getElementById('modalParticipant').style.display = 'block';
         document.getElementById('editId').value = "";
-        document.getElementById('modalTitre').innerText = "Nouveau Participant";
-        ['pNom','pPrenom','pEmail','pTel','pVoie','pCP','pVille','pNumAdherent'].forEach(id => document.getElementById(id).value = "");
+        document.getElementById('modalTitre').innerText = "Ajouter un nouveau participant";
+        ['pNom','pPrenom','pEmail','pTel','pVoie','pCP','pVille','pNumAdherent'].forEach(i => document.getElementById(i).value = "");
         document.getElementById('pEstMembre').value = "false";
     }
 
     function fermerModale() { document.getElementById('modalParticipant').style.display = 'none'; }
 
     function preparerModif(id) {
-        const p = listeLocale.find(x => x.id === id);
+        const p = listeParticipants.find(x => x.id === id);
         ouvrirModale();
         document.getElementById('modalTitre').innerText = "Modifier " + p.nom;
         document.getElementById('editId').value = p.id;
