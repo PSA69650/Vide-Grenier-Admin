@@ -30,12 +30,20 @@
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // Vérification au chargement : si déjà connecté, on va au menu
+    window.onload = async () => {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (session) {
+            window.location.replace("menu_admin.html");
+        }
+    };
+
     async function seConnecter() {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const btn = document.getElementById('authBtn');
 
-        btn.innerText = "Vérification...";
+        btn.innerText = "Connexion...";
         btn.disabled = true;
 
         const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
@@ -45,7 +53,6 @@
             btn.innerText = "Se connecter";
             btn.disabled = false;
         } else {
-            // On utilise replace pour ne pas pouvoir revenir en arrière
             window.location.replace("menu_admin.html");
         }
     }
