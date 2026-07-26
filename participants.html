@@ -8,14 +8,14 @@
     <style>
         :root { --primary: #273c75; --secondary: #fbc531; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .container { max-width: 1400px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         
         /* Tableau */
         .table-container { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: var(--primary); color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: var(--primary); color: white; white-space: nowrap; }
         tr:hover { background-color: #f9f9f9; }
 
         /* Boutons */
@@ -23,15 +23,21 @@
         .btn-add { background: var(--success); }
         .btn-edit { background: var(--secondary); color: var(--primary); }
         .btn-back { background: #7f8c8d; text-decoration: none; padding: 8px 15px; border-radius: 6px; color: white; display: inline-block; margin-bottom: 10px; }
+        .btn-decode { background: #3498db; padding: 4px 8px; font-size: 0.75rem; margin-top: 4px; border-radius: 4px; border: none; color: white; cursor: pointer; }
 
         /* Modale */
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: white; margin: 2% auto; padding: 25px; border-radius: 10px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
-        .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .full { grid-column: span 2; }
-        label { font-weight: bold; margin-bottom: 5px; color: var(--primary); display: block; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        .loading-text { font-style: italic; color: #7f8c8d; font-size: 0.8rem; }
+        .modal-content { background: white; margin: 2% auto; padding: 25px; border-radius: 10px; width: 90%; max-width: 750px; max-height: 90vh; overflow-y: auto; }
+        .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .full { grid-column: span 3; }
+        .span-2 { grid-column: span 2; }
+        .section-title { grid-column: span 3; font-weight: bold; color: var(--primary); border-bottom: 2px solid var(--secondary); padding-bottom: 5px; margin-top: 10px; font-size: 0.95rem; text-transform: uppercase; }
+        label { font-weight: 600; margin-bottom: 4px; color: #34495e; display: block; font-size: 0.8rem; }
+        input, select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem; }
+        .loading-text { font-style: italic; color: #7f8c8d; font-size: 0.75rem; }
+        
+        /* Encadré d'infos décryptées */
+        .decode-info { background: #e1f5fe; border: 1px solid #b3e5fc; padding: 8px; border-radius: 6px; font-size: 0.75rem; color: #0277bd; margin-top: 5px; display: none; }
     </style>
 </head>
 <body>
@@ -48,46 +54,69 @@
             <thead>
                 <tr>
                     <th>Nom & Prénom</th>
+                    <th>Naissance</th>
+                    <th>Pièce Identité</th>
                     <th>Contact</th>
-                    <th>Localisation</th>
+                    <th>Adresse</th>
                     <th>Statut</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="corpsTableau">
-                <tr><td colspan="5" style="text-align:center;">Vérification de la session...</td></tr>
+                <tr><td colspan="7" style="text-align:center;">Vérification de la session...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
+<!-- MODALE DE CRÉATION / ÉDITION -->
 <div id="modalParticipant" class="modal">
     <div class="modal-content">
         <h3 id="modalTitre">Nouveau Participant</h3>
         <input type="hidden" id="editId">
         
         <div class="grid-form">
+            <!-- Section Identité -->
+            <div class="section-title">Identité</div>
             <div class="form-group"><label>Nom *</label><input type="text" id="pNom" required></div>
             <div class="form-group"><label>Prénom *</label><input type="text" id="pPrenom" required></div>
-            <div class="form-group full"><label>Email *</label><input type="email" id="pEmail" required></div>
-            <div class="form-group"><label>Téléphone</label><input type="text" id="pTel"></div>
-            <div class="form-group"><label>N° Adhérent</label><input type="text" id="pNumAdherent"></div>
-            <div class="form-group full"><label>Voie / Rue</label><input type="text" id="pVoie"></div>
-            <!-- Fonction CP -> Ville -->
+            <div class="form-group"><label>Date de Naissance</label><input type="date" id="pDateNaissance"></div>
+            <div class="form-group span-2"><label>Commune de Naissance</label><input type="text" id="pCommuneNaissance"></div>
+            <div class="form-group"><label>Dépt. Naissance</label><input type="text" id="pDeptNaissance"></div>
+
+            <!-- Section Pièce d'identité -->
+            <div class="section-title">Pièce d'Identité</div>
+            <div class="form-group span-2">
+                <label>N° Pièce D'identité / Bande MRZ</label>
+                <input type="text" id="pPiId" placeholder="Ancien format (12 ch) ou Bande MRZ CNI/Passeport">
+                <button type="button" class="btn-decode" onclick="analyserPieceIdentite()">🔍 Décrypter le numéro</button>
+                <div id="decodeResult" class="decode-info"></div>
+            </div>
+            <div class="form-group"><label>Délivrée le</label><input type="date" id="pPiDate"></div>
+            <div class="form-group full"><label>Par (Lieu / Préfecture)</label><input type="text" id="pPiLieu"></div>
+
+            <!-- Section Contact & Adresse -->
+            <div class="section-title">Contact & Adresse</div>
+            <div class="form-group span-2"><label>Email *</label><input type="email" id="pEmail" required></div>
+            <div class="form-group"><label>Téléphone *</label><input type="text" id="pTel" required></div>
+            <div class="form-group full"><label>Voie / Adresse</label><input type="text" id="pVoie"></div>
             <div class="form-group">
                 <label>Code Postal</label>
                 <input type="text" id="pCP" maxlength="5" oninput="chercherVille(this.value)">
                 <span id="cpStatus" class="loading-text"></span>
             </div>
-            <div class="form-group"><label>Ville</label><input type="text" id="pVille"></div>
-            
-            <div class="form-group full">
+            <div class="form-group span-2"><label>Ville</label><input type="text" id="pVille"></div>
+
+            <!-- Section Adhésion -->
+            <div class="section-title">Statut Adhérent</div>
+            <div class="form-group span-2">
                 <label>Membre de l'association ?</label>
-                <select id="pEstMembre">
+                <select id="pEstMembre" onchange="toggleNumAdherent()">
                     <option value="false">Non</option>
                     <option value="true">Oui</option>
                 </select>
             </div>
+            <div class="form-group"><label>N° Adhérent</label><input type="text" id="pNumAdherent"></div>
         </div>
 
         <div style="text-align: right; margin-top: 20px;">
@@ -104,38 +133,107 @@
 
     let listeLocale = [];
 
-    // --- SÉCURITÉ ---
+    // --- INITIALISATION & SÉCURITÉ ---
     window.onload = async () => {
         const { data: { session } } = await _supabase.auth.getSession();
-        if (!session) { window.location.replace("admin.html");}
+        if (!session) { window.location.replace("admin.html"); }
         else { chargerDonnees(); }
     };
 
     async function chargerDonnees() {
         const { data, error } = await _supabase.from('participants').select('*').order('nom');
-        if (error) { alert(error.message); return; }
+        if (error) { alert("Erreur : " + error.message); return; }
         listeLocale = data;
         afficherTableau(data);
     }
 
+    // --- AFFICHAGE TABLEAU ---
     function afficherTableau(data) {
         const corps = document.getElementById('corpsTableau');
-        corps.innerHTML = data.map(p => `
+        if(data.length === 0) {
+            corps.innerHTML = `<tr><td colspan="7" style="text-align:center;">Aucun participant trouvé.</td></tr>`;
+            return;
+        }
+
+        corps.innerHTML = data.map(p => {
+            const dateNais = p.date_naissance ? new Date(p.date_naissance).toLocaleDateString('fr-FR') : '-';
+            return `
             <tr>
-                <td><b>${p.nom.toUpperCase()}</b> ${p.prenom}</td>
-                <td>${p.email}</td>
+                <td><b>${(p.nom || '').toUpperCase()}</b> ${p.prenom || ''}</td>
+                <td>${dateNais}<br><small style="color:#7f8c8d;">${p.commune_naissance || ''} (${p.Departement_naissance || ''})</small></td>
+                <td><small>N° ${p.PI_ID || '-'}<br>Délivré : ${p.PI_Date_delivrance || '-'}</small></td>
+                <td>${p.email}<br><small style="color:#7f8c8d;">${p.telephone || '-'}</small></td>
                 <td>${p.adresse_ville || '-'} (${p.adresse_cp || ''})</td>
-                <td>${p.est_membre ? '✅ Membre' : '❌ Non'}</td>
+                <td>${p.est_membre ? '✅ Membre' + (p.num_adherent ? ` (N°${p.num_adherent})` : '') : '❌ Non'}</td>
                 <td><button class="btn btn-edit" onclick="preparerModif('${p.id}')">Modifier</button></td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     }
 
-    // --- LOGIQUE UUID ET VILLE ---
+// --- DÉCRYPTAGE DIRECT DU NUMÉRO DE PIÈCE ---
+    function analyserPieceIdentite() {
+        // Nettoyage : suppression des espaces, tirets et chevron '<'
+        const rawInput = document.getElementById('pPiId').value.trim().toUpperCase().replace(/[\s\-<]/g, '');
+        const resDiv = document.getElementById('decodeResult');
+        resDiv.style.display = "block";
+
+        if (!rawInput) {
+            resDiv.innerHTML = "⚠️ Veuillez entrer un numéro à décrypter.";
+            return;
+        }
+
+        let extractions = [];
+
+        // 1. Détection de toute séquence de type Date (AAMMJJ) suivie d'un sexe M/F ou isolée
+        // Recherche un bloc de 6 chiffres (ex: 850525 pour 25 mai 1985)[cite: 1, 2]
+        const datesTrouvees = rawInput.match(/\d{6}/g);
+
+        if (datesTrouvees) {
+            datesTrouvees.forEach(d => {
+                const aa = parseInt(d.substring(0, 2), 10);
+                const mm = parseInt(d.substring(2, 4), 10);
+                const jj = parseInt(d.substring(4, 6), 10);
+
+                // Vérification de la cohérence d'un mois (1-12) et d'un jour (1-31)[cite: 1, 2]
+                if (mm >= 1 && mm <= 12 && jj >= 1 && jj <= 31) {
+                    const anneeFull = (aa > 26 ? "19" : "20") + d.substring(0, 2);
+                    const dateIso = `${anneeFull}-${d.substring(2, 4)}-${d.substring(4, 6)}`;
+                    
+                    extractions.push(`• Date détectée : <strong>${d.substring(4, 6)}/${d.substring(2, 4)}/${anneeFull}</strong>`);
+
+                    // Remplissage automatique de la date de naissance si le champ est encore vide[cite: 1, 2]
+                    if (!document.getElementById('pDateNaissance').value) {
+                        document.getElementById('pDateNaissance').value = dateIso;
+                    }
+                }
+            });
+        }
+
+        // 2. Détection du Sexe s'il est spécifié (M ou F) dans la séquence[cite: 1, 2]
+        if (/[0-9]M[0-9]/.test(rawInput)) {
+            extractions.push("• Genre / Sexe : <strong>Masculin (M)</strong>");
+        } else if (/[0-9]F[0-9]/.test(rawInput)) {
+            extractions.push("• Genre / Sexe : <strong>Féminin (F)</strong>");
+        }
+
+        // 3. Découpage et affichage des blocs numériques significatifs
+        const blocsNumeriques = rawInput.match(/\d+/g);
+        if (blocsNumeriques) {
+            extractions.push(`• Séquences numériques : ${blocsNumeriques.join(' | ')}`);
+        }
+
+        // Restitution brute
+        if (extractions.length > 0) {
+            resDiv.innerHTML = `<strong>Résultat du décryptage (${rawInput.length} caractères) :</strong><br>` + extractions.join('<br>');
+        } else {
+            resDiv.innerHTML = `ℹ️ Numéro brut enregistré : <strong>${rawInput}</strong> (Aucune date AAMMJJ extraite).`;
+        }
+    }
+
+    // --- UTILITAIRES & API ---
     function genererUUID() {
-        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-        );
+        return crypto.randomUUID();
     }
 
     async function chercherVille(cp) {
@@ -143,28 +241,44 @@
         if (cp.length === 5) {
             status.innerText = "Recherche...";
             try {
-                const response = await fetch(`https://api.zippopotam.us/fr/${cp}`);
+                const response = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom&format=json`);
                 if (response.ok) {
                     const data = await response.json();
-                    document.getElementById('pVille').value = data.places[0]['place name'].toUpperCase();
-                    status.innerText = "✅ Ville trouvée";
-                } else { status.innerText = "❌ Inconnu"; }
+                    if(data.length > 0) {
+                        document.getElementById('pVille').value = data[0].nom.toUpperCase();
+                        status.innerText = "✅ Trouvé";
+                    } else { status.innerText = "❌ CP Inconnu"; }
+                }
             } catch (e) { status.innerText = ""; }
         } else { status.innerText = ""; }
     }
 
+    function toggleNumAdherent() {
+        const estMembre = document.getElementById('pEstMembre').value === "true";
+        document.getElementById('pNumAdherent').disabled = !estMembre;
+    }
+
+    // --- SAUVEGARDE (INSERT / UPDATE) ---
     async function enregistrer() {
         const id = document.getElementById('editId').value;
+        const estMembre = document.getElementById('pEstMembre').value === "true";
+
         const p = {
-            nom: document.getElementById('pNom').value,
+            nom: document.getElementById('pNom').value.toUpperCase(),
             prenom: document.getElementById('pPrenom').value,
             email: document.getElementById('pEmail').value,
             telephone: document.getElementById('pTel').value,
+            date_naissance: document.getElementById('pDateNaissance').value || null,
+            commune_naissance: document.getElementById('pCommuneNaissance').value,
+            Departement_naissance: document.getElementById('pDeptNaissance').value,
+            PI_ID: document.getElementById('pPiId').value,
+            PI_Date_delivrance: document.getElementById('pPiDate').value || null,
+            PI_lieu_delivrance: document.getElementById('pPiLieu').value,
             adresse_voie: document.getElementById('pVoie').value,
             adresse_cp: document.getElementById('pCP').value,
             adresse_ville: document.getElementById('pVille').value,
-            num_adherent: document.getElementById('pNumAdherent').value,
-            est_membre: document.getElementById('pEstMembre').value === "true"
+            est_membre: estMembre,
+            num_adherent: estMembre ? document.getElementById('pNumAdherent').value : null
         };
 
         const btn = document.getElementById('saveBtn');
@@ -172,11 +286,11 @@
 
         if (id) {
             const { error } = await _supabase.from('participants').update(p).eq('id', id);
-            if (error) alert(error.message);
+            if (error) alert("Erreur de modification : " + error.message);
         } else {
-            p.id = genererUUID(); // Résout l'erreur de contrainte NOT NULL
+            p.id = genererUUID();
             const { error } = await _supabase.from('participants').insert([p]);
-            if (error) alert(error.message);
+            if (error) alert("Erreur de création : " + error.message);
         }
         
         btn.disabled = false;
@@ -184,29 +298,51 @@
         chargerDonnees();
     }
 
-    // --- INTERFACE ---
+    // --- MODALE ---
     function ouvrirModale() {
         document.getElementById('modalParticipant').style.display = 'block';
         document.getElementById('editId').value = "";
         document.getElementById('modalTitre').innerText = "Nouveau Participant";
-        ['pNom','pPrenom','pEmail','pTel','pVoie','pCP','pVille','pNumAdherent'].forEach(i => document.getElementById(i).value = "");
+        document.getElementById('decodeResult').style.display = "none";
+        
+        const inputs = ['pNom','pPrenom','pEmail','pTel','pDateNaissance','pCommuneNaissance',
+                        'pDeptNaissance','pPiId','pPiDate','pPiLieu','pVoie','pCP','pVille','pNumAdherent'];
+        inputs.forEach(i => document.getElementById(i).value = "");
+        
+        document.getElementById('pEstMembre').value = "false";
+        document.getElementById('cpStatus').innerText = "";
+        toggleNumAdherent();
     }
 
-    function fermerModale() { document.getElementById('modalParticipant').style.display = 'none'; }
+    function fermerModale() { 
+        document.getElementById('modalParticipant').style.display = 'none'; 
+    }
 
     function preparerModif(id) {
         const p = listeLocale.find(x => x.id === id);
+        if (!p) return;
+
         ouvrirModale();
+        document.getElementById('modalTitre').innerText = "Modifier le Participant";
         document.getElementById('editId').value = p.id;
-        document.getElementById('pNom').value = p.nom;
-        document.getElementById('pPrenom').value = p.prenom;
-        document.getElementById('pEmail').value = p.email;
+        
+        document.getElementById('pNom').value = p.nom || "";
+        document.getElementById('pPrenom').value = p.prenom || "";
+        document.getElementById('pEmail').value = p.email || "";
         document.getElementById('pTel').value = p.telephone || "";
+        document.getElementById('pDateNaissance').value = p.date_naissance || "";
+        document.getElementById('pCommuneNaissance').value = p.commune_naissance || "";
+        document.getElementById('pDeptNaissance').value = p.Departement_naissance || "";
+        document.getElementById('pPiId').value = p.PI_ID || "";
+        document.getElementById('pPiDate').value = p.PI_Date_delivrance || "";
+        document.getElementById('pPiLieu').value = p.PI_lieu_delivrance || "";
+        document.getElementById('pVoie').value = p.adresse_voie || "";
         document.getElementById('pCP').value = p.adresse_cp || "";
         document.getElementById('pVille').value = p.adresse_ville || "";
-        document.getElementById('pVoie').value = p.adresse_voie || "";
+        document.getElementById('pEstMembre').value = (p.est_membre || false).toString();
         document.getElementById('pNumAdherent').value = p.num_adherent || "";
-        document.getElementById('pEstMembre').value = p.est_membre.toString();
+        
+        toggleNumAdherent();
     }
 </script>
 </body>

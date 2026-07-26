@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Réservations - Les Ginettes</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #273c75; --secondary: #fbc531; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1400px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        
+        /* Barre de filtres */
+        .filter-bar { display: flex; gap: 15px; background: #f1f2f6; padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 8px; }
+        .filter-group label { font-weight: bold; font-size: 0.85rem; color: #2c3e50; margin: 0; }
+        .filter-group select { padding: 6px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85rem; background: white; cursor: pointer; }
+
+        /* Tableau */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: var(--primary); color: white; white-space: nowrap; }
+        tr:hover { background-color: #f9f9f9; }
+
+        /* Badges de Statut */
+        .badge { padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.75rem; text-align: center; display: inline-block; }
+        .badge-attente { background: #ffeaa7; color: #d63031; }
+        .badge-valide { background: #badc58; color: #27ae60; }
+        .badge-refuse { background: #ff7675; color: white; }
+
+        /* Badges Emplacement */
+        .badge-loc { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; display: inline-block; }
+        .badge-interieur { background: #74b9ff; color: #0984e3; }
+        .badge-exterieur { background: #55efc4; color: #00b894; }
+
+        /* Boutons */
+        .btn { padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; }
+        .btn-add { background: var(--success); }
+        .btn-edit { background: var(--secondary); color: var(--primary); }
+        .btn-email { background: #0984e3; color: white; }
+        .btn-email:hover { background: #026aa7; }
+        .btn-back { background: #7f8c8d; text-decoration: none; padding: 8px 15px; border-radius: 6px; color: white; display: inline-block; margin-bottom: 10px; }
+
+        .actions-cell { display: flex; gap: 6px; flex-wrap: nowrap; }
+
+        /* Modale */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
+        .modal-content { background: white; margin: 2% auto; padding: 25px; border-radius: 10px; width: 90%; max-width: 750px; max-height: 90vh; overflow-y: auto; }
+        .grid-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .full { grid-column: span 3; }
+        .span-2 { grid-column: span 2; }
+        .section-title { grid-column: span 3; font-weight: bold; color: var(--primary); border-bottom: 2px solid var(--secondary); padding-bottom: 5px; margin-top: 10px; font-size: 0.95rem; text-transform: uppercase; }
+        label { font-weight: 600; margin-bottom: 4px; color: #34495e; display: block; font-size: 0.8rem; }
+        input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem; font-family: inherit; }
+        .price-display { background: var(--primary); color: white; padding: 8px; text-align: center; font-weight: bold; font-size: 1.1rem; border-radius: 6px; }
+        .comment-cell { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; color: #555; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <a href="menu_admin.html" class="btn-back">⬅ Menu</a>
+    <div class="header-actions">
+        <h2>Registre des Réservations</h2>
+        <button class="btn btn-add" onclick="ouvrirModale()">+ Nouvelle Réservation</button>
+    </div>
+
+    <!-- BARRE DE FILTRES -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label for="filtreEmplacement"> Emplacement :</label>
+            <select id="filtreEmplacement" onchange="appliquerFiltres()">
+                <option value="TOUS">Tous les emplacements</option>
+                <option value="Intérieur">🏢 Intérieur</option>
+                <option value="Extérieur">🌳 Extérieur</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="filtreStatut"> Statut :</label>
+            <select id="filtreStatut" onchange="appliquerFiltres()">
+                <option value="TOUS">Tous les statuts</option>
+                <option value="En attente">En attente</option>
+                <option value="Validé">Validé</option>
+                <option value="Refusé">Refusé</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Participant</th>
+                    <th>Emplacement</th>
+                    <th>Métrage</th>
+                    <th>Prix Total</th>
+                    <th>Véhicule</th>
+                    <th>Voisin Souhaité</th>
+                    <th>Commentaire</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="corpsTableau">
+                <tr><td colspan="9" style="text-align:center;">Vérification de la session...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODALE DE CRÉATION / ÉDITION -->
+<div id="modalReservation" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitre">Nouvelle Réservation</h3>
+        <input type="hidden" id="editId">
+        
+        <div class="grid-form">
+            <!-- Section Participant -->
+            <div class="section-title">Participant</div>
+            <div class="form-group full">
+                <label>Sélectionner le Participant *</label>
+                <select id="rParticipantId" onchange="calculerTotalAuto()" required>
+                    <option value="">-- Choisir un participant --</option>
+                </select>
+            </div>
+
+            <!-- Section Détails Emplacement -->
+            <div class="section-title">Détails de l'Emplacement</div>
+            <div class="form-group">
+                <label>Emplacement *</label>
+                <select id="rEmplacement" onchange="calculerTotalAuto()">
+                    <option value="Extérieur">Extérieur</option>
+                    <option value="Intérieur">Intérieur</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Métrage (m) *</label>
+                <input type="number" id="rMetrage" min="1" max="20" value="3" oninput="calculerTotalAuto()" required>
+            </div>
+            <div class="form-group">
+                <label>Total Calculé</label>
+                <div id="rTotalPrixDisplay" class="price-display">12 €</div>
+                <input type="hidden" id="rTotalPrix" value="12">
+            </div>
+
+            <!-- Section Options & Préférences -->
+            <div class="section-title">Options & Placement</div>
+            <div class="form-group span-2">
+                <label>Option Véhicule</label>
+                <select id="rVehicule">
+                    <option value="Sans">Sans</option>
+                    <option value="Avec facultatif">Avec si disponible</option>
+                    <option value="Avec obligatoire">Avec obligatoire (sinon refus)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Statut Dossier</label>
+                <select id="rStatut">
+                    <option value="En attente">En attente</option>
+                    <option value="Validé">Validé</option>
+                    <option value="Refusé">Refusé</option>
+                </select>
+            </div>
+            <div class="form-group full">
+                <label>Voisin Souhaité</label>
+                <input type="text" id="rVoisin" placeholder="Ex: Mme MARTIN ou Aucun">
+            </div>
+
+            <!-- Section Remarques -->
+            <div class="section-title">Commentaires</div>
+            <div class="form-group full">
+                <label>Remarques particulières (2000 car. max)</label>
+                <textarea id="rCommentaire" rows="3" maxlength="2000" placeholder="Besoins spécifiques, précisions..."></textarea>
+            </div>
+        </div>
+
+        <div style="text-align: right; margin-top: 20px;">
+            <button class="btn" style="background:#bdc3c7;" onclick="fermerModale()">Annuler</button>
+            <button id="saveBtn" class="btn btn-add" onclick="enregistrer()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SUPABASE_URL = "https://dawnqgtitjrqmqnnrhky.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let listeReservations = [];
+    let listeParticipants = [];
+
+    // Objet par défaut encodé pour l'URL mailto
+    const OBJET_MAIL = encodeURIComponent("Votre inscription au vide grenier des Ginettes le 20 septembre 2026 à Quincieux");
+
+    // --- INITIALISATION & SÉCURITÉ ---
+    window.onload = async () => {
+        const { data: { session } } = await _supabase.auth.getSession();
+        if (!session) { window.location.replace("admin.html"); }
+        else { 
+            await chargerParticipants();
+            await chargerDonnees(); 
+        }
+    };
+
+    async function chargerParticipants() {
+        const { data, error } = await _supabase.from('participants').select('*').order('nom');
+        if (error) { console.error(error.message); return; }
+        listeParticipants = data;
+
+        const select = document.getElementById('rParticipantId');
+        select.innerHTML = '<option value="">-- Choisir un participant --</option>' + 
+            data.map(p => `<option value="${p.id}">${p.nom.toUpperCase()} ${p.prenom} (${p.est_membre ? 'Membre' : 'Non membre'})</option>`).join('');
+    }
+
+    async function chargerDonnees() {
+        const { data, error } = await _supabase
+            .from('reservations')
+            .select(`
+                *,
+                participants ( id, nom, prenom, telephone, email, est_membre )
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) { alert("Erreur : " + error.message); return; }
+        listeReservations = data;
+        appliquerFiltres();
+    }
+
+    // --- LOGIQUE DE FILTRAGE ---
+    function appliquerFiltres() {
+        const valEmplacement = document.getElementById('filtreEmplacement').value;
+        const valStatut = document.getElementById('filtreStatut').value;
+
+        const listeFiltree = listeReservations.filter(r => {
+            // Filtre Emplacement
+            let matchEmplacement = true;
+            if (valEmplacement !== 'TOUS') {
+                const emp = (r.type_emplacement || '').toLowerCase();
+                if (valEmplacement === 'Intérieur') {
+                    matchEmplacement = (emp === 'intérieur' || emp === 'interieur');
+                } else if (valEmplacement === 'Extérieur') {
+                    matchEmplacement = (emp === 'extérieur' || emp === 'exterieur');
+                }
+            }
+
+            // Filtre Statut
+            let matchStatut = true;
+            if (valStatut !== 'TOUS') {
+                matchStatut = (r.statut_dossier === valStatut);
+            }
+
+            return matchEmplacement && matchStatut;
+        });
+
+        afficherTableau(listeFiltree);
+    }
+
+    // --- AFFICHAGE TABLEAU ---
+    function afficherTableau(data) {
+        const corps = document.getElementById('corpsTableau');
+        if(!data || data.length === 0) {
+            corps.innerHTML = `<tr><td colspan="9" style="text-align:center;">Aucune réservation ne correspond aux critères.</td></tr>`;
+            return;
+        }
+
+        corps.innerHTML = data.map(r => {
+            const part = r.participants || { nom: 'INCONNU', prenom: '', telephone: '-', email: '' };
+            
+            // Badge du statut
+            let badgeStatutClass = 'badge-attente';
+            if (r.statut_dossier === 'Validé') badgeStatutClass = 'badge-valide';
+            if (r.statut_dossier === 'Refusé') badgeStatutClass = 'badge-refuse';
+
+            // Badge du type d'emplacement
+            const isInterieur = (r.type_emplacement || '').toLowerCase() === 'intérieur' || (r.type_emplacement || '').toLowerCase() === 'interieur';
+            const badgeLocClass = isInterieur ? 'badge-interieur' : 'badge-exterieur';
+            const locLabel = isInterieur ? '🏢 Intérieur' : '🌳 Extérieur';
+
+            // Génération du lien Mailto
+            const mailtoLink = part.email ? `mailto:${part.email}?subject=${OBJET_MAIL}` : '#';
+            const btnMailDisabled = !part.email ? 'disabled style="opacity:0.5; cursor:not-allowed;" onclick="event.preventDefault(); alert(\'Aucun e-mail renseigné pour ce participant.\');"' : '';
+
+            return `
+            <tr>
+                <td><b>${(part.nom || '').toUpperCase()}</b> ${part.prenom || ''}<br><small style="color:#7f8c8d;">📞 ${part.telephone || '-'}</small></td>
+                <td><span class="badge-loc ${badgeLocClass}">${locLabel}</span></td>
+                <td><b>${r.metrage_reserve || 0} m</b></td>
+                <td><strong>${r.total_prix || 0} €</strong></td>
+                <td><small>${r.option_vehicule || 'Sans'}</small></td>
+                <td><small>${r.voisin_souhaite || 'Aucun'}</small></td>
+                <td class="comment-cell" title="${r.commentaire || ''}">${r.commentaire || '-'}</td>
+                <td><span class="badge ${badgeStatutClass}">${r.statut_dossier || 'En attente'}</span></td>
+                <td>
+                    <div class="actions-cell">
+                        <button class="btn btn-edit" onclick="preparerModif(${r.id})">Modifier</button>
+                        <a href="${mailtoLink}" ${btnMailDisabled} class="btn btn-email" title="Envoyer un email">✉ Email</a>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }).join('');
+    }
+
+    // --- CALCUL TARIF AUTOMATIQUE ---
+    function calculerTotalAuto() {
+        const partId = document.getElementById('rParticipantId').value;
+        const type = document.getElementById('rEmplacement').value;
+        const metres = parseInt(document.getElementById('rMetrage').value) || 0;
+
+        const part = listeParticipants.find(p => p.id === partId);
+        const estMembre = part ? part.est_membre : false;
+
+        let tarifUnitaire = estMembre ? (type === "Extérieur" ? 3 : 4) : (type === "Extérieur" ? 4 : 5);
+        let total = tarifUnitaire * metres;
+
+        document.getElementById('rTotalPrixDisplay').innerText = total + " €";
+        document.getElementById('rTotalPrix').value = total;
+    }
+
+    // --- SAUVEGARDE (INSERT / UPDATE) ---
+    async function enregistrer() {
+        const id = document.getElementById('editId').value;
+        const participantId = document.getElementById('rParticipantId').value;
+
+        if (!participantId) {
+            alert("Veuillez sélectionner un participant.");
+            return;
+        }
+
+        const resData = {
+            evenement_id: 1,
+            participant_id: participantId,
+            type_emplacement: document.getElementById('rEmplacement').value,
+            metrage_reserve: parseInt(document.getElementById('rMetrage').value),
+            total_prix: parseFloat(document.getElementById('rTotalPrix').value),
+            option_vehicule: document.getElementById('rVehicule').value,
+            voisin_souhaite: document.getElementById('rVoisin').value || "Aucun",
+            statut_dossier: document.getElementById('rStatut').value,
+            commentaire: document.getElementById('rCommentaire').value
+        };
+
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true;
+
+        if (id) {
+            const { error } = await _supabase.from('reservations').update(resData).eq('id', id);
+            if (error) alert("Erreur de modification : " + error.message);
+        } else {
+            const { error } = await _supabase.from('reservations').insert([resData]);
+            if (error) alert("Erreur de création : " + error.message);
+        }
+        
+        btn.disabled = false;
+        fermerModale();
+        chargerDonnees();
+    }
+
+    // --- MODALE ---
+    function ouvrirModale() {
+        document.getElementById('modalReservation').style.display = 'block';
+        document.getElementById('editId').value = "";
+        document.getElementById('modalTitre').innerText = "Nouvelle Réservation";
+        
+        document.getElementById('rParticipantId').value = "";
+        document.getElementById('rEmplacement').value = "Extérieur";
+        document.getElementById('rMetrage').value = "3";
+        document.getElementById('rVehicule').value = "Sans";
+        document.getElementById('rStatut').value = "En attente";
+        document.getElementById('rVoisin').value = "";
+        document.getElementById('rCommentaire').value = "";
+        calculerTotalAuto();
+    }
+
+    function fermerModale() { 
+        document.getElementById('modalReservation').style.display = 'none'; 
+    }
+
+    function preparerModif(id) {
+        const r = listeReservations.find(x => x.id === id);
+        if (!r) return;
+
+        ouvrirModale();
+        document.getElementById('modalTitre').innerText = "Modifier la Réservation";
+        document.getElementById('editId').value = r.id;
+        
+        document.getElementById('rParticipantId').value = r.participant_id || "";
+        document.getElementById('rEmplacement').value = r.type_emplacement || "Extérieur";
+        document.getElementById('rMetrage').value = r.metrage_reserve || 3;
+        document.getElementById('rVehicule').value = r.option_vehicule || "Sans";
+        document.getElementById('rStatut').value = r.statut_dossier || "En attente";
+        document.getElementById('rVoisin').value = r.voisin_souhaite || "";
+        document.getElementById('rCommentaire').value = r.commentaire || "";
+        
+        calculerTotalAuto();
+    }
+</script>
+</body>
+</html>
