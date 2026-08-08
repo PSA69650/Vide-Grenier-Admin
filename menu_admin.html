@@ -141,6 +141,7 @@
         .bg-valide { background: #d4edda; color: #155724; }
         .bg-attente { background: #fff3cd; color: #856404; }
         .bg-refuse { background: #f8d7da; color: #721c24; }
+        .bg-annule { background: #e74c3c; color: white; }
 
         .btn-logout {
             display: block;
@@ -190,11 +191,15 @@
                     <span class="badge-kpi bg-refuse">Refusés</span>
                     <span class="kpi-value" id="kpiRefuse">-</span>
                 </div>
+                <div class="kpi-stat">
+                    <span class="badge-kpi bg-annule">Annulés</span>
+                    <span class="kpi-value" id="kpiAnnule">-</span>
+                </div>
             </div>
 
-            <!-- 2. Métrage par Emplacement -->
+            <!-- 2. Métrage par Emplacement & Total Montant -->
             <div class="kpi-box">
-                <h4>📏 Métrage Réserνé</h4>
+                <h4>📏 Métrage Réserνé (Actifs)</h4>
                 <div class="kpi-stat">
                     <span>🏢 Intérieur :</span>
                     <span class="kpi-value" id="kpiMetresInterieur">- m</span>
@@ -204,8 +209,12 @@
                     <span class="kpi-value" id="kpiMetresExterieur">- m</span>
                 </div>
                 <div class="kpi-stat" style="border-top: 1px dashed #ccc; padding-top: 4px; margin-top: 4px;">
-                    <span><strong>Total cumulé :</strong></span>
+                    <span><strong>Total métrage :</strong></span>
                     <span class="kpi-value" id="kpiMetresTotal">- m</span>
+                </div>
+                <div class="kpi-stat">
+                    <span><strong>Total encaissé/dû :</strong></span>
+                    <span class="kpi-value" id="kpiMontantTotal" style="color: var(--success);">- €</span>
                 </div>
             </div>
 
@@ -291,44 +300,54 @@
         let nbValides = 0;
         let nbAttente = 0;
         let nbRefuses = 0;
+        let nbAnnules = 0;
 
-        // 2. Métrages
+        // 2. Métrages & Montant Total (Hors Annulés & Refusés)
         let metresInterieur = 0;
         let metresExterieur = 0;
+        let montantTotalHorsExclus = 0;
 
-        // 3. Véhicules (Extérieur uniquement)
+        // 3. Véhicules (Extérieur uniquement - Hors Annulés & Refusés)
         let vehicSansRes = 0, vehicSansMetres = 0;
         let vehicFacultatifRes = 0, vehicFacultatifMetres = 0;
         let vehicObligatoireRes = 0, vehicObligatoireMetres = 0;
 
         reservations.forEach(r => {
-            // Calcul par statut
             const statut = r.statut_dossier || 'En attente';
+            
+            // Ventilation par statut
             if (statut === 'Validé') nbValides++;
             else if (statut === 'Refusé') nbRefuses++;
+            else if (statut === 'Annulé') nbAnnules++;
             else nbAttente++;
 
-            // Calcul des métrages
-            const metrage = parseInt(r.metrage_reserve) || 0;
-            const emp = (r.type_emplacement || r.emplacement || '').toLowerCase();
-            const isInterieur = emp === 'intérieur' || emp === 'interieur';
+            // On exclut les "Refusé" et "Annulé" pour les métrages, prix et véhicules
+            if (statut !== 'Refusé' && statut !== 'Annulé') {
+                const metrage = parseInt(r.metrage_reserve) || 0;
+                const prix = parseFloat(r.total_prix) || 0;
+                const emp = (r.type_emplacement || r.emplacement || '').toLowerCase();
+                const isInterieur = emp === 'intérieur' || emp === 'interieur';
 
-            if (isInterieur) {
-                metresInterieur += metrage;
-            } else {
-                metresExterieur += metrage;
+                // Cumul du montant total
+                montantTotalHorsExclus += prix;
 
-                // Ventilation par option véhicule sur l'extérieur
-                const optVehicule = (r.option_vehicule || '').toLowerCase();
-                if (optVehicule.includes('obligatoire')) {
-                    vehicObligatoireRes++;
-                    vehicObligatoireMetres += metrage;
-                } else if (optVehicule.includes('facultatif') || optVehicule.includes('disponible')) {
-                    vehicFacultatifRes++;
-                    vehicFacultatifMetres += metrage;
+                if (isInterieur) {
+                    metresInterieur += metrage;
                 } else {
-                    vehicSansRes++;
-                    vehicSansMetres += metrage;
+                    metresExterieur += metrage;
+
+                    // Ventilation par option véhicule sur l'extérieur
+                    const optVehicule = (r.option_vehicule || '').toLowerCase();
+                    if (optVehicule.includes('obligatoire')) {
+                        vehicObligatoireRes++;
+                        vehicObligatoireMetres += metrage;
+                    } else if (optVehicule.includes('facultatif') || optVehicule.includes('disponible')) {
+                        vehicFacultatifRes++;
+                        vehicFacultatifMetres += metrage;
+                    } else {
+                        vehicSansRes++;
+                        vehicSansMetres += metrage;
+                    }
                 }
             }
         });
@@ -338,10 +357,12 @@
         document.getElementById('kpiValide').innerText = nbValides;
         document.getElementById('kpiAttente').innerText = nbAttente;
         document.getElementById('kpiRefuse').innerText = nbRefuses;
+        document.getElementById('kpiAnnule').innerText = nbAnnules;
 
         document.getElementById('kpiMetresInterieur').innerText = metresInterieur + " m";
         document.getElementById('kpiMetresExterieur').innerText = metresExterieur + " m";
         document.getElementById('kpiMetresTotal').innerText = (metresInterieur + metresExterieur) + " m";
+        document.getElementById('kpiMontantTotal').innerText = montantTotalHorsExclus + " €";
 
         document.getElementById('kpiVehicSans').innerText = `${vehicSansRes} (${vehicSansMetres} m)`;
         document.getElementById('kpiVehicFacultatif').innerText = `${vehicFacultatifRes} (${vehicFacultatifMetres} m)`;

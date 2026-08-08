@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion des Réservations - Les Ginettes</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.0/dist/umd/supabase.js"></script>
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <style>
         :root { --primary: #273c75; --secondary: #fbc531; --danger: #e74c3c; --success: #27ae60; --bg: #f4f7f6; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; }
@@ -29,6 +30,7 @@
         .badge-attente { background: #ffeaa7; color: #d63031; }
         .badge-valide { background: #badc58; color: #27ae60; }
         .badge-refuse { background: #ff7675; color: white; }
+        .badge-annule { background: #747171cf; color: white; }
 
         /* Badges Emplacement */
         .badge-loc { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; display: inline-block; }
@@ -36,9 +38,10 @@
         .badge-exterieur { background: #55efc4; color: #00b894; }
 
         /* Boutons */
-        .btn { padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; }
+        .btn { padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; font-size: 0.8rem; }
         .btn-add { background: var(--success); }
         .btn-edit { background: var(--secondary); color: var(--primary); }
+        .btn-pdf { background: #8e44ad; color: white; }
         .btn-email { background: #0984e3; color: white; }
         .btn-email:hover { background: #026aa7; }
         .btn-back { background: #7f8c8d; text-decoration: none; padding: 8px 15px; border-radius: 6px; color: white; display: inline-block; margin-bottom: 10px; }
@@ -85,6 +88,7 @@
                 <option value="En attente">En attente</option>
                 <option value="Validé">Validé</option>
                 <option value="Refusé">Refusé</option>
+                <option value="Annulé">Annulé</option>
             </select>
         </div>
     </div>
@@ -162,6 +166,7 @@
                     <option value="En attente">En attente</option>
                     <option value="Validé">Validé</option>
                     <option value="Refusé">Refusé</option>
+                    <option value="Annulé">Annulé</option>
                 </select>
             </div>
             <div class="form-group full">
@@ -192,7 +197,6 @@
     let listeReservations = [];
     let listeParticipants = [];
 
-    // Objet par défaut encodé pour l'URL mailto
     const OBJET_MAIL = encodeURIComponent("Votre inscription au vide grenier des Ginettes le 20 septembre 2026 à Quincieux");
 
     // --- INITIALISATION & SÉCURITÉ ---
@@ -212,7 +216,7 @@
 
         const select = document.getElementById('rParticipantId');
         select.innerHTML = '<option value="">-- Choisir un participant --</option>' + 
-            data.map(p => `<option value="${p.id}">${p.nom.toUpperCase()} ${p.prenom} (${p.est_membre ? 'Membre' : 'Non membre'})</option>`).join('');
+            data.map(p => `<option value="${p.id}">${(p.nom || '').toUpperCase()} ${p.prenom || ''} (${p.est_membre ? 'Membre' : 'Non membre'})</option>`).join('');
     }
 
     async function chargerDonnees() {
@@ -220,7 +224,7 @@
             .from('reservations')
             .select(`
                 *,
-                participants ( id, nom, prenom, telephone, email, est_membre )
+                participants ( * )
             `)
             .order('created_at', { ascending: false });
 
@@ -235,7 +239,6 @@
         const valStatut = document.getElementById('filtreStatut').value;
 
         const listeFiltree = listeReservations.filter(r => {
-            // Filtre Emplacement
             let matchEmplacement = true;
             if (valEmplacement !== 'TOUS') {
                 const emp = (r.type_emplacement || '').toLowerCase();
@@ -246,7 +249,6 @@
                 }
             }
 
-            // Filtre Statut
             let matchStatut = true;
             if (valStatut !== 'TOUS') {
                 matchStatut = (r.statut_dossier === valStatut);
@@ -269,18 +271,28 @@
         corps.innerHTML = data.map(r => {
             const part = r.participants || { nom: 'INCONNU', prenom: '', telephone: '-', email: '' };
             
-            // Badge du statut
             let badgeStatutClass = 'badge-attente';
             if (r.statut_dossier === 'Validé') badgeStatutClass = 'badge-valide';
             if (r.statut_dossier === 'Refusé') badgeStatutClass = 'badge-refuse';
+            if (r.statut_dossier === 'Annulé') badgeStatutClass = 'badge-annule';
 
-            // Badge du type d'emplacement
             const isInterieur = (r.type_emplacement || '').toLowerCase() === 'intérieur' || (r.type_emplacement || '').toLowerCase() === 'interieur';
             const badgeLocClass = isInterieur ? 'badge-interieur' : 'badge-exterieur';
             const locLabel = isInterieur ? '🏢 Intérieur' : '🌳 Extérieur';
 
-            // Génération du lien Mailto
-            const mailtoLink = part.email ? `mailto:${part.email}?subject=${OBJET_MAIL}` : '#';
+            const montantTotal = r.total_prix || 0;
+            const corpsMessage = encodeURIComponent(
+                `Bonjour,\n\n` +
+                `Merci pour votre inscription au vide grenier des Ginettes.\n\n` +
+                `Vous trouverez en pièce jointe les documents à valider/compléter et signer.\n\n` +
+                `Votre inscription sera validée une fois l'ensemble des documents reçus par mail ou par courrier (Les Ginettes, 15 rue de la république, 69650 Quincieux) ainsi que le paiement de ${montantTotal}€ par chèque à l'ordre de "Les Ginettes" ou par virement.\n` +
+                `Si vous choisissez le paiement par virement je vous transmettrai le RIB de l'association.\n\n` +
+                `N'hésitez pas à revenir vers moi pour toute question ou remarque.\n\n` +
+                `En vous souhaitant une agréable soirée,\n\n` +
+                `Patrick pour l'association les Ginettes`
+            );
+
+            const mailtoLink = part.email ? `mailto:${part.email}?subject=${OBJET_MAIL}&body=${corpsMessage}` : '#';
             const btnMailDisabled = !part.email ? 'disabled style="opacity:0.5; cursor:not-allowed;" onclick="event.preventDefault(); alert(\'Aucun e-mail renseigné pour ce participant.\');"' : '';
 
             return `
@@ -296,12 +308,157 @@
                 <td>
                     <div class="actions-cell">
                         <button class="btn btn-edit" onclick="preparerModif(${r.id})">Modifier</button>
+                        <button class="btn btn-pdf" onclick="regenererPDFReservation(${r.id})">📄 PDF</button>
                         <a href="${mailtoLink}" ${btnMailDisabled} class="btn btn-email" title="Envoyer un email">✉ Email</a>
                     </div>
                 </td>
             </tr>
             `;
         }).join('');
+    }
+
+    // --- RÉGÉNÉRATION DU PDF DPUIS LA RÉSERVATION ---
+    async function regenererPDFReservation(reservationId) {
+        const res = listeReservations.find(x => x.id === reservationId);
+        if (!res) { alert("Réservation introuvable."); return; }
+
+        const p = res.participants;
+        if (!p) { alert("Participant associé introuvable."); return; }
+
+        let piIdVal = p.PI_ID ? p.PI_ID.trim() : '';
+
+        // Si le champ est manquant, vide ou altéré
+        if (!piIdVal || piIdVal === '' || piIdVal.includes('3')) {
+            const saisie = prompt(
+                `Le numéro de pièce d'identité (PI_ID) pour ${p.nom} ${p.prenom} est absent ou incertain.\nVeuillez le vérifier/saisir ci-dessous :`,
+                piIdVal
+            );
+            if (saisie === null) return;
+            piIdVal = saisie.trim();
+        }
+
+        const infoPdf = {
+            nom: p.nom || '',
+            prenom: p.prenom || '',
+            date_naissance: p.date_naissance || '',
+            commune_naissance: p.commune_naissance || '',
+            dept_naissance: p.Departement_naissance || '',
+            adresse: p.adresse_voie || '',
+            cp: p.adresse_cp || '',
+            ville: p.adresse_ville || '',
+            tel: p.telephone || '',
+            email: p.email || '',
+            pi_id: piIdVal,
+            pi_date: p.PI_Date_delivrance || '',
+            pi_lieu: p.PI_lieu_delivrance || '',
+            metrage: String(res.metrage_reserve || '3'),
+            typeEmplacement: res.type_emplacement || 'Extérieur',
+            estMembre: p.est_membre || false,
+            totalPrix: String(res.total_prix || '12'),
+            optionVehicule: res.option_vehicule || 'Sans'
+        };
+
+        await genererFormulairePDF(infoPdf);
+    }
+
+    function formaterDateFR(dateString) {
+        if (!dateString) return "";
+        if (dateString.includes('-')) {
+            const [annee, mois, jour] = dateString.split('-');
+            return `${jour}     ${mois}     ${annee}`;
+        }
+        return dateString;
+    }
+
+    async function genererFormulairePDF(donnees) {
+        const { PDFDocument, rgb } = PDFLib;
+
+        try {
+            const url = 'Inscription_VDG_2026.pdf';
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Fichier PDF source introuvable");
+            
+            const existingPdfBytes = await response.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(existingPdfBytes);
+            
+            const pages = pdfDoc.getPages();
+            const firstPage = pages[0]; 
+
+            if (!firstPage) throw new Error("Le PDF ne contient aucune page.");
+
+            const textOptions = { size: 10, color: rgb(0, 0, 0) };
+
+            // Identité
+            firstPage.drawText(donnees.nom.toUpperCase(), { x: 80, y: 565, ...textOptions });
+            firstPage.drawText(donnees.prenom, { x: 270, y: 565, ...textOptions });
+            firstPage.drawText(formaterDateFR(donnees.date_naissance), { x: 95, y: 548, ...textOptions });
+            firstPage.drawText(donnees.commune_naissance, { x: 195, y: 548, ...textOptions });
+            firstPage.drawText(donnees.dept_naissance, { x: 360, y: 548, ...textOptions });
+
+            // Adresse et Contact
+            firstPage.drawText(donnees.adresse, { x: 95, y: 533, ...textOptions });
+            firstPage.drawText(donnees.cp, { x: 110, y: 517, ...textOptions });
+            firstPage.drawText(donnees.ville, { x: 250, y: 517, ...textOptions });
+            firstPage.drawText(donnees.tel, { x: 105, y: 500, ...textOptions });
+            firstPage.drawText(donnees.email, { x: 250, y: 500, ...textOptions });
+
+            // Pièce d'identité
+            firstPage.drawText(donnees.pi_id, { x: 205, y: 485, ...textOptions });
+            firstPage.drawText(formaterDateFR(donnees.pi_date), { x: 105, y: 469, ...textOptions });
+            firstPage.drawText(donnees.pi_lieu, { x: 210, y: 469, ...textOptions });
+
+            // Tarifs / Emplacement
+            const textePrix = donnees.totalPrix;
+            
+            if (donnees.typeEmplacement === "Extérieur" && !donnees.estMembre) {
+                firstPage.drawText(donnees.metrage, { x: 100, y: 280, ...textOptions });
+                firstPage.drawText(textePrix, { x: 235, y: 280, ...textOptions });
+            } else if (donnees.typeEmplacement === "Intérieur" && !donnees.estMembre) {
+                firstPage.drawText(donnees.metrage, { x: 100, y: 263, ...textOptions });
+                firstPage.drawText(textePrix, { x: 235, y: 263, ...textOptions });
+            } else if (donnees.typeEmplacement === "Extérieur" && donnees.estMembre) {
+                firstPage.drawText(donnees.metrage, { x: 375, y: 280, ...textOptions });
+                firstPage.drawText(textePrix, { x: 510, y: 280, ...textOptions });
+            } else if (donnees.typeEmplacement === "Intérieur" && donnees.estMembre) {
+                firstPage.drawText(donnees.metrage, { x: 375, y: 263, ...textOptions });
+                firstPage.drawText(textePrix, { x: 510, y: 263, ...textOptions });
+            }
+           
+            firstPage.drawText(textePrix, { x: 350, y: 168, ...textOptions });
+            
+            // Cases Véhicule
+            const optionsCaseX = { size: 12, color: rgb(0, 0, 0) }; 
+            if (donnees.optionVehicule === "Avec obligatoire") {
+                firstPage.drawText("X", { x: 44, y: 211, ...optionsCaseX });
+            } else if (donnees.optionVehicule === "Avec facultatif") {
+                firstPage.drawText("X", { x: 227, y: 211, ...optionsCaseX });
+            } else {
+                firstPage.drawText("X", { x: 408, y: 211, ...optionsCaseX });
+            }
+           
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: "application/pdf" });
+            const horodatage = Date.now();
+            const nomFichier = `2026_${donnees.nom.toUpperCase()}_${horodatage}.pdf`;
+
+            // Téléchargement immédiat
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = nomFichier;
+            link.click();
+
+            // Envoi vers Supabase Storage
+            const { error } = await _supabase.storage
+                .from('inscriptions-securisees')
+                .upload(nomFichier, blob, { contentType: 'application/pdf', upsert: false });
+
+            if (error) console.error("Erreur de sauvegarde Storage :", error);
+            else alert("✅ PDF régénéré, téléchargé et enregistré dans le Storage.");
+
+        } catch (err) {
+            console.error("Erreur PDF:", err);
+            alert("Erreur lors de la génération du PDF.");
+        }
     }
 
     // --- CALCUL TARIF AUTOMATIQUE ---
