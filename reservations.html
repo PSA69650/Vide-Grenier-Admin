@@ -125,6 +125,7 @@
         <table>
             <thead>
                 <tr>
+                    <th>ID</th>
                     <th>Participant</th>
                     <th>Emplacement</th>
                     <th>Métrage</th>
@@ -326,7 +327,7 @@
     function afficherTableau(data) {
         const corps = document.getElementById('corpsTableau');
         if(!data || data.length === 0) {
-            corps.innerHTML = `<tr><td colspan="10" style="text-align:center;">Aucune réservation ne correspond aux critères.</td></tr>`;
+            corps.innerHTML = `<tr><td colspan="11" style="text-align:center;">Aucune réservation ne correspond aux critères.</td></tr>`;
             return;
         }
 
@@ -366,6 +367,7 @@
 
             return `
             <tr>
+                <td><strong>#${r.id}</strong></td>
                 <td><b>${(part.nom || '').toUpperCase()}</b> ${part.prenom || ''}<br><small style="color:#7f8c8d;">📞 ${part.telephone || '-'}</small></td>
                 <td><span class="badge-loc ${badgeLocClass}">${locLabel}</span></td>
                 <td><b>${r.metrage_reserve || 0} m</b></td>
