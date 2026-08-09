@@ -6,6 +6,7 @@
     <title>Menu Administration - Les Ginettes</title>
     <!-- SDK Supabase nécessaire pour la vérification de session et déconnexion -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary: #273c75;
@@ -156,6 +157,25 @@
             transition: 0.3s;
         }
 
+        .btn-excel {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-excel:hover {
+            background-color: #219150;
+        }
+
         .btn-logout:hover { opacity: 0.9; transform: scale(1.05); }
     </style>
 </head>
@@ -263,6 +283,10 @@
         </a>
     </div>
 
+    <button class="btn-excel" onclick="exporterBaseCompleteXLSX()">
+        📊 Sauvegarder toute la base (4 Onglets)
+    </button>
+    </P>
     <button class="btn-logout" onclick="seDeconnecter()">Se déconnecter</button>
 </div>
 
@@ -367,6 +391,47 @@
         document.getElementById('kpiVehicSans').innerText = `${vehicSansRes} (${vehicSansMetres} m)`;
         document.getElementById('kpiVehicFacultatif').innerText = `${vehicFacultatifRes} (${vehicFacultatifMetres} m)`;
         document.getElementById('kpiVehicObligatoire').innerText = `${vehicObligatoireRes} (${vehicObligatoireMetres} m)`;
+    }
+
+    async function exporterBaseCompleteXLSX() {
+        try {
+            // 1. Récupération des données des 4 tables en parallèle
+            const [resEmplacements, resEvenements, resParticipants, resReservations] = await Promise.all([
+                _supabase.from('emplacements').select('*'),
+                _supabase.from('evenements').select('*'),
+                _supabase.from('participants').select('*'),
+                _supabase.from('reservations').select('*')
+            ]);
+
+            // Vérification des erreurs
+            if (resEmplacements.error) throw resEmplacements.error;
+            if (resEvenements.error) throw resEvenements.error;
+            if (resParticipants.error) throw resParticipants.error;
+            if (resReservations.error) throw resReservations.error;
+
+            // 2. Création d'un nouveau classeur Excel (Workbook)
+            const wb = XLSX.utils.book_new();
+
+            // 3. Conversion de chaque jeu de données en onglet (Worksheet)
+            const wsEmplacements = XLSX.utils.json_to_sheet(resEmplacements.data || []);
+            const wsEvenements = XLSX.utils.json_to_sheet(resEvenements.data || []);
+            const wsParticipants = XLSX.utils.json_to_sheet(resParticipants.data || []);
+            const wsReservations = XLSX.utils.json_to_sheet(resReservations.data || []);
+
+            // 4. Ajout des onglets au classeur
+            XLSX.utils.book_append_sheet(wb, wsEmplacements, "Emplacements");
+            XLSX.utils.book_append_sheet(wb, wsEvenements, "Événements");
+            XLSX.utils.book_append_sheet(wb, wsParticipants, "Participants");
+            XLSX.utils.book_append_sheet(wb, wsReservations, "Réservations");
+
+            // 5. Génération et téléchargement du fichier .xlsx
+            const dateStr = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `sauvegarde_complete_supabase_${dateStr}.xlsx`);
+
+        } catch (err) {
+            console.error("Erreur d'exportation :", err);
+            alert("Erreur lors de l'exportation Excel : " + err.message);
+        }
     }
 
     async function seDeconnecter() {
