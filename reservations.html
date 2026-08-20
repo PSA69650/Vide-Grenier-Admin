@@ -17,7 +17,7 @@
         .filter-bar { display: flex; gap: 15px; background: #f1f2f6; padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
         .filter-group { display: flex; align-items: center; gap: 8px; }
         .filter-group label { font-weight: bold; font-size: 0.85rem; color: #2c3e50; margin: 0; }
-        .filter-group select { padding: 6px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85rem; background: white; cursor: pointer; }
+        .filter-group select, .filter-group input { padding: 6px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85rem; background: white; }
 
         /* Tableau */
         .table-container { overflow-x: auto; }
@@ -45,6 +45,7 @@
 
         /* Boutons */
         .btn { padding: 8px 12px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; color: white; display: inline-flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none; font-size: 0.8rem; }
+        .btn-sm { padding: 4px 8px; font-size: 0.75rem; }
         .btn-add { background: var(--success); }
         .btn-edit { background: var(--secondary); color: var(--primary); }
         .btn-pdf { background: #8e44ad; color: white; }
@@ -70,6 +71,13 @@
         input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 0.85rem; font-family: inherit; }
         .price-display { background: var(--primary); color: white; padding: 8px; text-align: center; font-weight: bold; font-size: 1.1rem; border-radius: 6px; }
         .comment-cell { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; color: #555; }
+
+        /* Liste de la modale PDF */
+        .pdf-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; background: #f8f9fa; margin-bottom: 8px; border-radius: 6px; }
+        .pdf-list-item:hover { background: #f1f2f6; }
+        .pdf-info { display: flex; flex-direction: column; gap: 4px; }
+        .pdf-name { font-weight: bold; color: var(--primary); font-size: 0.85rem; }
+        .pdf-date { font-size: 0.75rem; color: #7f8c8d; }
     </style>
 </head>
 <body>
@@ -136,13 +144,30 @@
                     <th>Suivi Dossier</th>
                     <th>Commentaire</th>
                     <th>Statut</th>
+                    <th>Fichiers PDF</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="corpsTableau">
-                <tr><td colspan="10" style="text-align:center;">Vérification de la session...</td></tr>
+                <tr><td colspan="12" style="text-align:center;">Vérification de la session...</td></tr>
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- MODALE FICHIERS PDF D'UN PARTICIPANT -->
+<div id="modalListePdf" class="modal">
+    <div class="modal-content" style="max-width: 650px;">
+        <h3 id="pdfModalTitre">📁 Documents PDF de l'inscription</h3>
+        <p id="pdfModalSousTitre" style="font-size:0.85rem; color:#666; margin-bottom:15px;"></p>
+        
+        <div id="contenuListePdf">
+            <p style="text-align:center; color:#7f8c8d;">Chargement des fichiers...</p>
+        </div>
+
+        <div style="text-align: right; margin-top: 20px;">
+            <button class="btn" style="background:#7f8c8d;" onclick="fermerModalePdf()">Fermer</button>
+        </div>
     </div>
 </div>
 
@@ -153,7 +178,6 @@
         <input type="hidden" id="editId">
         
         <div class="grid-form">
-            <!-- Section Participant -->
             <div class="section-title">Participant</div>
             <div class="form-group full">
                 <label>Sélectionner le Participant *</label>
@@ -162,7 +186,6 @@
                 </select>
             </div>
 
-            <!-- Section Détails Emplacement -->
             <div class="section-title">Détails de l'Emplacement</div>
             <div class="form-group">
                 <label>Emplacement *</label>
@@ -181,7 +204,6 @@
                 <input type="hidden" id="rTotalPrix" value="12">
             </div>
 
-            <!-- Section Options & Préférences -->
             <div class="section-title">Options & Placement</div>
             <div class="form-group span-2">
                 <label>Option Véhicule</label>
@@ -205,7 +227,6 @@
                 <input type="text" id="rVoisin" placeholder="Ex: Mme MARTIN ou Aucun">
             </div>
 
-            <!-- Section Suivi Documents & Paiement -->
             <div class="section-title">Suivi du Dossier & Documents</div>
             <div class="form-group checkbox-group">
                 <input type="checkbox" id="rEtatEnvoiMail">
@@ -228,7 +249,6 @@
                 <label for="rPaiement" style="color:var(--success); font-weight:bold;">Paiement Reçu</label>
             </div>
 
-            <!-- Section Remarques -->
             <div class="section-title">Commentaires</div>
             <div class="form-group full">
                 <label>Remarques particulières (2000 car. max)</label>
@@ -253,7 +273,6 @@
 
     const OBJET_MAIL = encodeURIComponent("Votre inscription au vide grenier des Ginettes le 20 septembre 2026 à Quincieux");
 
-    // --- INITIALISATION & SÉCURITÉ ---
     window.onload = async () => {
         const { data: { session } } = await _supabase.auth.getSession();
         if (!session) { window.location.replace("admin.html"); }
@@ -287,7 +306,6 @@
         appliquerFiltres();
     }
 
-    // --- LOGIQUE DE FILTRAGE ---
     function appliquerFiltres() {
         const valEmplacement = document.getElementById('filtreEmplacement').value;
         const valStatut = document.getElementById('filtreStatut').value;
@@ -324,11 +342,10 @@
         afficherTableau(listeFiltree);
     }
 
-    // --- AFFICHAGE TABLEAU ---
     function afficherTableau(data) {
         const corps = document.getElementById('corpsTableau');
         if(!data || data.length === 0) {
-            corps.innerHTML = `<tr><td colspan="11" style="text-align:center;">Aucune réservation ne correspond aux critères.</td></tr>`;
+            corps.innerHTML = `<tr><td colspan="12" style="text-align:center;">Aucune réservation ne correspond aux critères.</td></tr>`;
             return;
         }
 
@@ -359,12 +376,13 @@
             const mailtoLink = part.email ? `mailto:${part.email}?subject=${OBJET_MAIL}&body=${corpsMessage}` : '#';
             const btnMailDisabled = !part.email ? 'disabled style="opacity:0.5; cursor:not-allowed;" onclick="event.preventDefault(); alert(\'Aucun e-mail renseigné pour ce participant.\');"' : '';
 
-            // Rendu Visuel des États Booléens
             const pillMail = r.EtatEnvoiMail ? `<span class="status-pill pill-yes">✉ Mail</span>` : `<span class="status-pill pill-no">✉ Mail</span>`;
             const pillInsc = r.FormulaireInscription ? `<span class="status-pill pill-yes">Insc.</span>` : `<span class="status-pill pill-no">Insc.</span>`;
             const pillRegl = r.FormulaireReglement ? `<span class="status-pill pill-yes">Règl.</span>` : `<span class="status-pill pill-no">Règl.</span>`;
             const pillAtt = r.FormulaireAttestation ? `<span class="status-pill pill-yes">Attest.</span>` : `<span class="status-pill pill-no">Attest.</span>`;
             const pillPay = r.Paiement ? `<span class="status-pill pill-yes">€ Payé</span>` : `<span class="status-pill pill-no">€ Non Payé</span>`;
+
+            const nomParticipantEscaped = (part.nom || '').replace(/'/g, "\\'");
 
             return `
             <tr>
@@ -383,9 +401,12 @@
                 <td class="comment-cell" title="${r.commentaire || ''}">${r.commentaire || '-'}</td>
                 <td><span class="badge ${badgeStatutClass}">${r.statut_dossier || 'En attente'}</span></td>
                 <td>
+                    <button class="btn btn-pdf btn-sm" onclick="ouvrirListePdfParticipant('${nomParticipantEscaped}')">📁 Voir les PDF</button>
+                </td>
+                <td>
                     <div class="actions-cell">
                         <button class="btn btn-edit" onclick="preparerModif(${r.id})">Modifier</button>
-                        <button class="btn btn-pdf" onclick="regenererPDFReservation(${r.id})">📄 PDF</button>
+                        <button class="btn btn-pdf" onclick="regenererPDFReservation(${r.id})">⚙ Régénérer</button>
                         <a href="${mailtoLink}" ${btnMailDisabled} class="btn btn-email" title="Envoyer un email">✉ Email</a>
                     </div>
                 </td>
@@ -394,7 +415,84 @@
         }).join('');
     }
 
-    // --- RÉGÉNÉRATION DU PDF DPUIS LA RÉSERVATION ---
+    // --- MODALE ET RÉCUPÉRATION DES PDF PAR PARTICIPANT ---
+    async function ouvrirListePdfParticipant(nomParticipant) {
+        const modal = document.getElementById('modalListePdf');
+        const titre = document.getElementById('pdfModalTitre');
+        const sousTitre = document.getElementById('pdfModalSousTitre');
+        const contenu = document.getElementById('contenuListePdf');
+
+        titre.innerText = `📁 Documents PDF : ${nomParticipant.toUpperCase()}`;
+        sousTitre.innerText = "Fichiers enregistrés dans Supabase Storage pour ce participant (classés du plus récent au plus ancien).";
+        contenu.innerHTML = `<p style="text-align:center; color:#7f8c8d;">Recherche des fichiers en cours...</p>`;
+        modal.style.display = 'block';
+
+        const { data, error } = await _supabase.storage
+            .from('inscriptions-securisees')
+            .list('', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+
+        if (error) {
+            contenu.innerHTML = `<p style="color:var(--danger); text-align:center;">Erreur lors du chargement : ${error.message}</p>`;
+            return;
+        }
+
+        const nomFiltre = nomParticipant.toUpperCase().trim();
+        const pdfsMatch = data.filter(item => {
+            if (!item.name || !item.name.toLowerCase().endsWith('.pdf')) return false;
+            return item.name.toUpperCase().includes(nomFiltre);
+        });
+
+        if (pdfsMatch.length === 0) {
+            contenu.innerHTML = `<p style="text-align:center; color:#7f8c8d; padding:20px;">Aucun fichier PDF trouvé pour <b>${nomParticipant}</b>.</p>`;
+            return;
+        }
+
+        contenu.innerHTML = pdfsMatch.map(file => {
+            const dateCreation = file.created_at ? new Date(file.created_at).toLocaleString('fr-FR') : 'Date inconnue';
+            const fileNameEscaped = file.name.replace(/'/g, "\\'");
+
+            return `
+            <div class="pdf-list-item">
+                <div class="pdf-info">
+                    <span class="pdf-name">📄 ${file.name}</span>
+                    <span class="pdf-date">🕒 Créé le : ${dateCreation}</span>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <button class="btn btn-pdf btn-sm" onclick="actionPdf('${fileNameEscaped}', 'open')">👁 Consulter</button>
+                    <button class="btn btn-add btn-sm" onclick="actionPdf('${fileNameEscaped}', 'download')">💾 Télécharger</button>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    function fermerModalePdf() {
+        document.getElementById('modalListePdf').style.display = 'none';
+    }
+
+    async function actionPdf(filename, mode) {
+        const { data, error } = await _supabase.storage
+            .from('inscriptions-securisees')
+            .createSignedUrl(filename, 60);
+
+        if (error || !data?.signedUrl) {
+            alert("Erreur lors de la génération du lien d'accès : " + (error ? error.message : "Introuvable"));
+            return;
+        }
+
+        if (mode === 'open') {
+            window.open(data.signedUrl, '_blank');
+        } else if (mode === 'download') {
+            const a = document.createElement('a');
+            a.href = data.signedUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    }
+
+    // --- RÉGÉNÉRATION DU PDF DEPUIS LA RÉSERVATION ---
     async function regenererPDFReservation(reservationId) {
         const res = listeReservations.find(x => x.id === reservationId);
         if (!res) { alert("Réservation introuvable."); return; }
@@ -522,7 +620,9 @@
                 .upload(nomFichier, blob, { contentType: 'application/pdf', upsert: false });
 
             if (error) console.error("Erreur de sauvegarde Storage :", error);
-            else alert("✅ PDF régénéré, téléchargé et enregistré dans le Storage.");
+            else {
+                alert("✅ PDF régénéré, téléchargé et enregistré dans le Storage.");
+            }
 
         } catch (err) {
             console.error("Erreur PDF:", err);
@@ -530,7 +630,6 @@
         }
     }
 
-    // --- CALCUL TARIF AUTOMATIQUE ---
     function calculerTotalAuto() {
         const partId = document.getElementById('rParticipantId').value;
         const type = document.getElementById('rEmplacement').value;
@@ -546,7 +645,6 @@
         document.getElementById('rTotalPrix').value = total;
     }
 
-    // --- SAUVEGARDE (INSERT / UPDATE) ---
     async function enregistrer() {
         const id = document.getElementById('editId').value;
         const participantId = document.getElementById('rParticipantId').value;
@@ -566,7 +664,6 @@
             voisin_souhaite: document.getElementById('rVoisin').value || "Aucun",
             statut_dossier: document.getElementById('rStatut').value,
             commentaire: document.getElementById('rCommentaire').value,
-            // Nouveaux champs booléens
             EtatEnvoiMail: document.getElementById('rEtatEnvoiMail').checked,
             FormulaireInscription: document.getElementById('rFormulaireInscription').checked,
             FormulaireReglement: document.getElementById('rFormulaireReglement').checked,
@@ -590,7 +687,6 @@
         chargerDonnees();
     }
 
-    // --- MODALE ---
     function ouvrirModale() {
         document.getElementById('modalReservation').style.display = 'block';
         document.getElementById('editId').value = "";
@@ -604,7 +700,6 @@
         document.getElementById('rVoisin').value = "";
         document.getElementById('rCommentaire').value = "";
 
-        // Réinitialisation des cases à cocher
         document.getElementById('rEtatEnvoiMail').checked = false;
         document.getElementById('rFormulaireInscription').checked = false;
         document.getElementById('rFormulaireReglement').checked = false;
@@ -634,7 +729,6 @@
         document.getElementById('rVoisin').value = r.voisin_souhaite || "";
         document.getElementById('rCommentaire').value = r.commentaire || "";
         
-        // Remplissage des cases à cocher à partir des données
         document.getElementById('rEtatEnvoiMail').checked = !!r.EtatEnvoiMail;
         document.getElementById('rFormulaireInscription').checked = !!r.FormulaireInscription;
         document.getElementById('rFormulaireReglement').checked = !!r.FormulaireReglement;
