@@ -139,6 +139,7 @@
             font-size: 0.75rem;
             font-weight: bold;
         }
+        .bg-nouveau { background: blue; color: white; }
         .bg-valide { background: #d4edda; color: #155724; }
         .bg-attente { background: #fff3cd; color: #856404; }
         .bg-refuse { background: #f8d7da; color: #721c24; }
@@ -198,6 +199,10 @@
                 <div class="kpi-stat">
                     <span>Total Dossiers :</span>
                     <span class="kpi-value" id="kpiTotalRes">-</span>
+                </div>
+                <div class="kpi-stat">
+                    <span class="badge-kpi bg-nouveau">Nouveau</span>
+                    <span class="kpi-value" id="kpiNouveau">-</span>
                 </div>
                 <div class="kpi-stat">
                     <span class="badge-kpi bg-valide">Validés</span>
@@ -321,6 +326,7 @@
 
         // 1. Statuts
         let totalRes = reservations.length;
+        let nbNouveau = 0;
         let nbValides = 0;
         let nbAttente = 0;
         let nbRefuses = 0;
@@ -341,6 +347,7 @@
             
             // Ventilation par statut
             if (statut === 'Validé') nbValides++;
+            else if (statut === 'Nouveau') nbNouveau++;
             else if (statut === 'Refusé') nbRefuses++;
             else if (statut === 'Annulé') nbAnnules++;
             else nbAttente++;
@@ -378,6 +385,7 @@
 
         // Mise à jour de l'affichage HTML
         document.getElementById('kpiTotalRes').innerText = totalRes;
+        document.getElementById('kpiNouveau').innerText = nbNouveau;
         document.getElementById('kpiValide').innerText = nbValides;
         document.getElementById('kpiAttente').innerText = nbAttente;
         document.getElementById('kpiRefuse').innerText = nbRefuses;
