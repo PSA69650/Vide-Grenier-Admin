@@ -28,6 +28,7 @@
 
         /* Badges de Statut */
         .badge { padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.75rem; text-align: center; display: inline-block; }
+        .badge-nouveau { background: #0f2a8b; color: white; }
         .badge-attente { background: #ffeaa7; color: #d63031; }
         .badge-valide { background: #badc58; color: #27ae60; }
         .badge-refuse { background: #ff7675; color: white; }
@@ -104,6 +105,7 @@
             <label for="filtreStatut"> Statut :</label>
             <select id="filtreStatut" onchange="appliquerFiltres()">
                 <option value="TOUS">Tous les statuts</option>
+                <option value="Nouveau">Nouveau</option>
                 <option value="En attente">En attente</option>
                 <option value="Validé">Validé</option>
                 <option value="Refusé">Refusé</option>
@@ -216,6 +218,7 @@
             <div class="form-group">
                 <label>Statut Dossier</label>
                 <select id="rStatut">
+                    <option value="Nouveau">Nouveau</option>
                     <option value="En attente">En attente</option>
                     <option value="Validé">Validé</option>
                     <option value="Refusé">Refusé</option>
@@ -353,6 +356,7 @@
             const part = r.participants || { nom: 'INCONNU', prenom: '', telephone: '-', email: '' };
             
             let badgeStatutClass = 'badge-attente';
+            if (r.statut_dossier === 'Nouveau') badgeStatutClass = 'badge-nouveau';
             if (r.statut_dossier === 'Validé') badgeStatutClass = 'badge-valide';
             if (r.statut_dossier === 'Refusé') badgeStatutClass = 'badge-refuse';
             if (r.statut_dossier === 'Annulé') badgeStatutClass = 'badge-annule';
