@@ -247,6 +247,10 @@
                 <input type="checkbox" id="rFormulaireAttestation">
                 <label for="rFormulaireAttestation">Attestation sur l'honneur</label>
             </div>
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="rCopie_PI">
+                <label for="rCopie_PI">Copie pièce identité</label>
+            </div>
             <div class="form-group checkbox-group span-2">
                 <input type="checkbox" id="rPaiement">
                 <label for="rPaiement" style="color:var(--success); font-weight:bold;">Paiement Reçu</label>
@@ -381,9 +385,10 @@
             const btnMailDisabled = !part.email ? 'disabled style="opacity:0.5; cursor:not-allowed;" onclick="event.preventDefault(); alert(\'Aucun e-mail renseigné pour ce participant.\');"' : '';
 
             const pillMail = r.EtatEnvoiMail ? `<span class="status-pill pill-yes">✉ Mail</span>` : `<span class="status-pill pill-no">✉ Mail</span>`;
-            const pillInsc = r.FormulaireInscription ? `<span class="status-pill pill-yes">Insc.</span>` : `<span class="status-pill pill-no">Insc.</span>`;
-            const pillRegl = r.FormulaireReglement ? `<span class="status-pill pill-yes">Règl.</span>` : `<span class="status-pill pill-no">Règl.</span>`;
-            const pillAtt = r.FormulaireAttestation ? `<span class="status-pill pill-yes">Attest.</span>` : `<span class="status-pill pill-no">Attest.</span>`;
+            const pillInsc = r.FormulaireInscription ? `<span class="status-pill pill-yes">Fiche Insc.</span>` : `<span class="status-pill pill-no">Fiche Insc.</span>`;
+            const pillRegl = r.FormulaireReglement ? `<span class="status-pill pill-yes">Règl. signé</span>` : `<span class="status-pill pill-no">Règl. signé</span>`;
+            const pillAtt = r.FormulaireAttestation ? `<span class="status-pill pill-yes">Attestation</span>` : `<span class="status-pill pill-no">Attestation</span>`;
+            const pillPI = r.Copie_PI ? `<span class="status-pill pill-yes">Pièce ident.</span>` : `<span class="status-pill pill-no">Pièce Ident.</span>`;
             const pillPay = r.Paiement ? `<span class="status-pill pill-yes">€ Payé</span>` : `<span class="status-pill pill-no">€ Non Payé</span>`;
 
             const nomParticipantEscaped = (part.nom || '').replace(/'/g, "\\'");
@@ -399,7 +404,7 @@
                 <td><small>${r.voisin_souhaite || 'Aucun'}</small></td>
                 <td>
                     <div style="line-height: 1.4;">
-                        ${pillMail} ${pillInsc} ${pillRegl}<br>${pillAtt} ${pillPay}
+                        ${pillMail} ${pillInsc} ${pillRegl}<br>${pillAtt} ${pillPI} ${pillPay}
                     </div>
                 </td>
                 <td class="comment-cell" title="${r.commentaire || ''}">${r.commentaire || '-'}</td>
@@ -672,6 +677,7 @@
             FormulaireInscription: document.getElementById('rFormulaireInscription').checked,
             FormulaireReglement: document.getElementById('rFormulaireReglement').checked,
             FormulaireAttestation: document.getElementById('rFormulaireAttestation').checked,
+            Copie_PI: document.getElementById('rCopie_PI').checked,
             Paiement: document.getElementById('rPaiement').checked
         };
 
@@ -708,6 +714,7 @@
         document.getElementById('rFormulaireInscription').checked = false;
         document.getElementById('rFormulaireReglement').checked = false;
         document.getElementById('rFormulaireAttestation').checked = false;
+        document.getElementById('rCopie_PI').checked = false;
         document.getElementById('rPaiement').checked = false;
 
         calculerTotalAuto();
@@ -737,6 +744,7 @@
         document.getElementById('rFormulaireInscription').checked = !!r.FormulaireInscription;
         document.getElementById('rFormulaireReglement').checked = !!r.FormulaireReglement;
         document.getElementById('rFormulaireAttestation').checked = !!r.FormulaireAttestation;
+        document.getElementById('rCopie_PI').checked = !!r.Copie_PI;
         document.getElementById('rPaiement').checked = !!r.Paiement;
 
         calculerTotalAuto();
