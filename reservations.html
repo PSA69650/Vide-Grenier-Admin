@@ -52,6 +52,7 @@
         .btn-pdf { background: #8e44ad; color: white; }
         .btn-email { background: #0984e3; color: white; }
         .btn-email:hover { background: #026aa7; }
+        .btn-danger { background: var(--danger); color: white; }
         .btn-back { background: #7f8c8d; text-decoration: none; padding: 8px 15px; border-radius: 6px; color: white; display: inline-block; margin-bottom: 10px; }
 
         .actions-cell { display: flex; gap: 6px; flex-wrap: nowrap; }
@@ -73,12 +74,14 @@
         .price-display { background: var(--primary); color: white; padding: 8px; text-align: center; font-weight: bold; font-size: 1.1rem; border-radius: 6px; }
         .comment-cell { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; color: #555; }
 
-        /* Liste de la modale PDF */
+        /* Liste de la modale Documents */
         .pdf-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; background: #f8f9fa; margin-bottom: 8px; border-radius: 6px; }
         .pdf-list-item:hover { background: #f1f2f6; }
         .pdf-info { display: flex; flex-direction: column; gap: 4px; }
         .pdf-name { font-weight: bold; color: var(--primary); font-size: 0.85rem; }
         .pdf-date { font-size: 0.75rem; color: #7f8c8d; }
+        
+        .upload-section { background: #eef2f7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed var(--primary); }
     </style>
 </head>
 <body>
@@ -146,7 +149,7 @@
                     <th>Suivi Dossier</th>
                     <th>Commentaire</th>
                     <th>Statut</th>
-                    <th>Fichiers PDF</th>
+                    <th>Pièces Jointes</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -157,18 +160,84 @@
     </div>
 </div>
 
-<!-- MODALE FICHIERS PDF D'UN PARTICIPANT -->
-<div id="modalListePdf" class="modal">
-    <div class="modal-content" style="max-width: 650px;">
-        <h3 id="pdfModalTitre">📁 Documents PDF de l'inscription</h3>
-        <p id="pdfModalSousTitre" style="font-size:0.85rem; color:#666; margin-bottom:15px;"></p>
+<!-- MODALE DE SELECTION POUR L'ENVOI D'EMAIL -->
+<div id="modalChoixMail" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+        <h3>✉ Configuration de l'Email</h3>
+        <p id="mailModalInfos" style="font-size:0.85rem; color:#666; margin-bottom:15px;"></p>
         
-        <div id="contenuListePdf">
-            <p style="text-align:center; color:#7f8c8d;">Chargement des fichiers...</p>
+        <input type="hidden" id="mailResId">
+        
+        <div class="form-group" style="margin-bottom: 12px;">
+            <label for="selectExpediteur">✍️ Expéditeur :</label>
+            <select id="selectExpediteur">
+                <option value="Patrick" selected>Patrick</option>
+                <option value="Anne-Marie">Anne-Marie</option>
+                <option value="Nathalie">Nathalie</option>
+                <option value="Virginie">Virginie</option>
+            </select>
         </div>
 
-        <div style="text-align: right; margin-top: 20px;">
-            <button class="btn" style="background:#7f8c8d;" onclick="fermerModalePdf()">Fermer</button>
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="selectMoment">☀️ Formule de politesse :</label>
+            <select id="selectMoment">
+                <option value="soirée" selected>Soirée ("agréable soirée")</option>
+                <option value="journée">Journée ("agréable journée")</option>
+            </select>
+        </div>
+
+        <div style="text-align: right; display:flex; gap:10px; justify-content:flex-end;">
+            <button class="btn" style="background:#bdc3c7;" onclick="fermerModaleMail()">Annuler</button>
+            <button class="btn btn-email" onclick="envoyerMailFinal()">🚀 Ouvrir le mail</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODALE PIÈCES JOINTES ET UPLOAD EN 2 LISTES DISTINCTES -->
+<div id="modalDossierDoc" class="modal">
+    <div class="modal-content" style="max-width: 750px;">
+        <h3 id="docModalTitre">📁 Gestion des Pièces Jointes</h3>
+        <p id="docModalSousTitre" style="font-size:0.85rem; color:#666; margin-bottom:15px;"></p>
+        
+        <!-- Formulaire d'envoi de fichier -->
+        <div class="upload-section">
+            <label style="margin-bottom:8px; display:block; font-weight:bold;">➕ Ajouter un document au sous-répertoire :</label>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; background:white; padding:8px 12px; border-radius:6px; border:1px solid #ccc;">
+                <label style="font-weight:normal; margin:0; cursor:pointer;"><input type="checkbox" id="chkTypeINS"> Inscription (_INS)</label>
+                <label style="font-weight:normal; margin:0; cursor:pointer;"><input type="checkbox" id="chkTypeREG"> Règlement signé (_REG)</label>
+                <label style="font-weight:normal; margin:0; cursor:pointer;"><input type="checkbox" id="chkTypeATT"> Attestation (_ATT)</label>
+                <label style="font-weight:normal; margin:0; cursor:pointer;"><input type="checkbox" id="chkTypePI"> Pièce d'identité (_PI)</label>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <input type="file" id="inputFileDoc" style="background:white;">
+                <button id="btnUploadDoc" class="btn btn-add" style="white-space:nowrap;" onclick="ajouterDocumentDossier()">📤 Envoyer</button>
+            </div>
+        </div>
+
+        <!-- LISTE 1 : Documents à la racine -->
+        <div style="margin-top:20px;">
+            <h4 style="color:var(--primary); margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                📄 <span>Documents générés automatiquements</span>
+            </h4>
+            <div id="contenuListeDocsRacine">
+                <p style="text-align:center; color:#7f8c8d;">Chargement des fichiers racine...</p>
+            </div>
+        </div>
+
+        <hr style="margin:25px 0; border:0; border-top:2px dashed #e2e8f0;">
+
+        <!-- LISTE 2 : Documents du sous-répertoire -->
+        <div>
+            <h4 style="color:var(--primary); margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                📁 <span>Documents reçus du participant</span>
+            </h4>
+            <div id="contenuListeDocs">
+                <p style="text-align:center; color:#7f8c8d;">Chargement du sous-répertoire...</p>
+            </div>
+        </div>
+
+        <div style="text-align: right; margin-top: 25px;">
+            <button class="btn" style="background:#7f8c8d;" onclick="fermerModaleDoc()">Fermer</button>
         </div>
     </div>
 </div>
@@ -277,8 +346,9 @@
 
     let listeReservations = [];
     let listeParticipants = [];
-
-    const OBJET_MAIL = encodeURIComponent("Votre inscription au vide grenier des Ginettes le 20 septembre 2026 à Quincieux");
+    let dossierCourantPath = "";
+    let nomParticipantCourant = "";
+    let reservationEnCoursMail = null;
 
     window.onload = async () => {
         const { data: { session } } = await _supabase.auth.getSession();
@@ -288,6 +358,20 @@
             await chargerDonnees(); 
         }
     };
+
+    // --- NETTOYAGE DES NOMS DE FICHIERS & DOSSIERS (ANTI-ACCENTS / TRUNCATE ESPACES EN FIN) ---
+    function nettoyerNomFichier(chaine) {
+        return chaine
+            .trimEnd()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9._-]/g, "_");
+    }
+
+    function construireNomDossier(resId, nomParticipant) {
+        const nomPropre = nettoyerNomFichier((nomParticipant || 'INCONNU').toUpperCase());
+        return `${resId}-${nomPropre}`;
+    }
 
     async function chargerParticipants() {
         const { data, error } = await _supabase.from('participants').select('*').order('nom');
@@ -369,20 +453,7 @@
             const badgeLocClass = isInterieur ? 'badge-interieur' : 'badge-exterieur';
             const locLabel = isInterieur ? '🏢 Intérieur' : '🌳 Extérieur';
 
-            const montantTotal = r.total_prix || 0;
-            const corpsMessage = encodeURIComponent(
-                `Bonjour,\n\n` +
-                `Merci pour votre inscription au vide grenier des Ginettes.\n\n` +
-                `Vous trouverez en pièce jointe les documents à valider/compléter et signer.\n\n` +
-                `Votre inscription sera validée une fois l'ensemble des documents reçus par mail ou par courrier (Les Ginettes, 15 rue de la république, 69650 Quincieux) ainsi que le paiement de ${montantTotal}€ par chèque à l'ordre de "Les Ginettes" ou par virement.\n` +
-                `Si vous choisissez le paiement par virement je vous transmettrai le RIB de l'association.\n\n` +
-                `N'hésitez pas à revenir vers moi pour toute question ou remarque.\n\n` +
-                `En vous souhaitant une agréable soirée,\n\n` +
-                `Patrick pour l'association les Ginettes`
-            );
-
-            const mailtoLink = part.email ? `mailto:${part.email}?subject=${OBJET_MAIL}&body=${corpsMessage}` : '#';
-            const btnMailDisabled = !part.email ? 'disabled style="opacity:0.5; cursor:not-allowed;" onclick="event.preventDefault(); alert(\'Aucun e-mail renseigné pour ce participant.\');"' : '';
+            const btnMailDisabled = !part.email ? 'disabled style="opacity:0.5; cursor:not-allowed;" onclick="alert(\'Aucun e-mail renseigné pour ce participant.\');"' : `onclick="ouvrirModaleMail(${r.id})"`;
 
             const pillMail = r.EtatEnvoiMail ? `<span class="status-pill pill-yes">✉ Mail</span>` : `<span class="status-pill pill-no">✉ Mail</span>`;
             const pillInsc = r.FormulaireInscription ? `<span class="status-pill pill-yes">Fiche Insc.</span>` : `<span class="status-pill pill-no">Fiche Insc.</span>`;
@@ -391,6 +462,7 @@
             const pillPI = r.Copie_PI ? `<span class="status-pill pill-yes">Pièce ident.</span>` : `<span class="status-pill pill-no">Pièce Ident.</span>`;
             const pillPay = r.Paiement ? `<span class="status-pill pill-yes">€ Payé</span>` : `<span class="status-pill pill-no">€ Non Payé</span>`;
 
+            const dossierNom = construireNomDossier(r.id, part.nom);
             const nomParticipantEscaped = (part.nom || '').replace(/'/g, "\\'");
 
             return `
@@ -410,13 +482,13 @@
                 <td class="comment-cell" title="${r.commentaire || ''}">${r.commentaire || '-'}</td>
                 <td><span class="badge ${badgeStatutClass}">${r.statut_dossier || 'En attente'}</span></td>
                 <td>
-                    <button class="btn btn-pdf btn-sm" onclick="ouvrirListePdfParticipant('${nomParticipantEscaped}')">📁 Voir les PDF</button>
+                    <button class="btn btn-pdf btn-sm" onclick="ouvrirDossierDocuments(${r.id}, '${nomParticipantEscaped}')">📁 ${dossierNom}</button>
                 </td>
                 <td>
                     <div class="actions-cell">
                         <button class="btn btn-edit" onclick="preparerModif(${r.id})">Modifier</button>
                         <button class="btn btn-pdf" onclick="regenererPDFReservation(${r.id})">⚙ Régénérer</button>
-                        <a href="${mailtoLink}" ${btnMailDisabled} class="btn btn-email" title="Envoyer un email">✉ Email</a>
+                        <button ${btnMailDisabled} class="btn btn-email" title="Envoyer un email">✉ Email</button>
                     </div>
                 </td>
             </tr>
@@ -424,68 +496,197 @@
         }).join('');
     }
 
-    // --- MODALE ET RÉCUPÉRATION DES PDF PAR PARTICIPANT ---
-    async function ouvrirListePdfParticipant(nomParticipant) {
-        const modal = document.getElementById('modalListePdf');
-        const titre = document.getElementById('pdfModalTitre');
-        const sousTitre = document.getElementById('pdfModalSousTitre');
-        const contenu = document.getElementById('contenuListePdf');
+    // --- GESTION DU CHOIX D'EMAIL ---
+    function ouvrirModaleMail(resId) {
+        const res = listeReservations.find(x => x.id === resId);
+        if (!res) return;
 
-        titre.innerText = `📁 Documents PDF : ${nomParticipant.toUpperCase()}`;
-        sousTitre.innerText = "Fichiers enregistrés dans Supabase Storage pour ce participant (classés du plus récent au plus ancien).";
-        contenu.innerHTML = `<p style="text-align:center; color:#7f8c8d;">Recherche des fichiers en cours...</p>`;
+        reservationEnCoursMail = res;
+        const part = res.participants || { nom: 'INCONNU', prenom: '', email: '' };
+
+        document.getElementById('mailResId').value = resId;
+        document.getElementById('mailModalInfos').innerText = `Destinataire : ${part.prenom} ${(part.nom || '').toUpperCase()} (${part.email})`;
+        document.getElementById('modalChoixMail').style.display = 'block';
+    }
+
+    function fermerModaleMail() {
+        document.getElementById('modalChoixMail').style.display = 'none';
+        reservationEnCoursMail = null;
+    }
+
+    function envoyerMailFinal() {
+        if (!reservationEnCoursMail) return;
+
+        const res = reservationEnCoursMail;
+        const part = res.participants || { nom: 'INCONNU', prenom: '', email: '' };
+        
+        const expediteur = document.getElementById('selectExpediteur').value;
+        const moment = document.getElementById('selectMoment').value;
+        const montantTotal = res.total_prix || 0;
+
+        const objetMailTxt = `${res.id}-${(part.nom || 'INCONNU').toUpperCase()} - Votre inscription au vide grenier des Ginettes le 20 septembre 2026 à Quincieux`;
+        const mailSubjectEncoded = encodeURIComponent(objetMailTxt);
+
+        const corpsMessage = encodeURIComponent(
+            `Bonjour,\n\n` +
+            `Merci pour votre inscription au vide grenier des Ginettes.\n\n` +
+            `Vous trouverez en pièce jointe les documents à valider/compléter et signer.\n\n` +
+            `Votre inscription sera validée une fois l'ensemble des documents reçus par mail ou par courrier (Les Ginettes, 15 rue de la république, 69650 Quincieux) ainsi que le paiement de ${montantTotal}€ par chèque à l'ordre de "Les Ginettes" ou par virement.\n` +
+            `Si vous choisissez le paiement par virement je vous transmettrai le RIB de l'association.\n\n` +
+            `N'hésitez pas à revenir vers moi pour toute question ou remarque.\n\n` +
+            `En vous souhaitant une agréable ${moment},\n\n` +
+            `${expediteur} pour l'association les Ginettes`
+        );
+
+        window.location.href = `mailto:${part.email}?subject=${mailSubjectEncoded}&body=${corpsMessage}`;
+        fermerModaleMail();
+    }
+
+    // --- MODALE ET GESTION DES DOCUMENTS DANS 2 LISTES SEPARÉES ---
+    async function ouvrirDossierDocuments(resId, nomParticipant) {
+        nomParticipantCourant = (nomParticipant || '').toUpperCase().trim();
+        dossierCourantPath = construireNomDossier(resId, nomParticipant);
+
+        const modal = document.getElementById('modalDossierDoc');
+        const titre = document.getElementById('docModalTitre');
+        const sousTitre = document.getElementById('docModalSousTitre');
+        
+        titre.innerText = `📁 Dossier : ${dossierCourantPath}`;
+        sousTitre.innerText = `Stockage Supabase : /inscriptions-securisees/${dossierCourantPath}/`;
+        document.getElementById('inputFileDoc').value = "";
+        
         modal.style.display = 'block';
+        await rafraichirListeFichiersDossier();
+    }
 
-        const { data, error } = await _supabase.storage
+    function fermerModaleDoc() {
+        document.getElementById('modalDossierDoc').style.display = 'none';
+        dossierCourantPath = "";
+        nomParticipantCourant = "";
+    }
+
+    async function rafraichirListeFichiersDossier() {
+        const elRacine = document.getElementById('contenuListeDocsRacine');
+        const elSousDossier = document.getElementById('contenuListeDocs');
+        
+        elRacine.innerHTML = `<p style="text-align:center; color:#7f8c8d;">Chargement des fichiers racine...</p>`;
+        elSousDossier.innerHTML = `<p style="text-align:center; color:#7f8c8d;">Chargement du sous-répertoire...</p>`;
+
+        // --- LISTE 1 : FICHIERS À LA RACINE ---
+        const { data: filesRacine, error: errRacine } = await _supabase.storage
             .from('inscriptions-securisees')
             .list('', { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
 
+        if (errRacine) {
+            elRacine.innerHTML = `<p style="color:var(--danger);">Erreur : ${errRacine.message}</p>`;
+        } else {
+            const nomFiltre = nettoyerNomFichier(nomParticipantCourant);
+            const fichiersFiltres = (filesRacine || []).filter(f => 
+                f.id && f.name.toUpperCase().includes(nomFiltre)
+            );
+
+            if (fichiersFiltres.length === 0) {
+                elRacine.innerHTML = `<p style="text-align:center; color:#7f8c8d; font-style:italic; padding:8px; background:#f8f9fa; border-radius:6px;">Aucun document à la racine pour ${nomParticipantCourant}.</p>`;
+            } else {
+                elRacine.innerHTML = fichiersFiltres.map(file => {
+                    const dateCreation = file.created_at ? new Date(file.created_at).toLocaleString('fr-FR') : 'Inconnue';
+                    const fileNameEscaped = file.name.replace(/'/g, "\\'");
+                    const fullFilePath = file.name;
+
+                    return `
+                    <div class="pdf-list-item" style="border-left: 4px solid var(--secondary);">
+                        <div class="pdf-info">
+                            <span class="pdf-name">📄 ${file.name}</span>
+                            <span class="pdf-date">🕒 ${dateCreation}</span>
+                        </div>
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn btn-pdf btn-sm" onclick="telechargerFichierDossier('${fullFilePath}', '${fileNameEscaped}', 'open')">👁 Consulter</button>
+                            <button class="btn btn-add btn-sm" onclick="telechargerFichierDossier('${fullFilePath}', '${fileNameEscaped}', 'download')">💾 Télécharger</button>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // --- LISTE 2 : FICHIERS DU SOUS-RÉPERTOIRE ---
+        const { data: filesSousDossier, error: errSousDossier } = await _supabase.storage
+            .from('inscriptions-securisees')
+            .list(dossierCourantPath, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+
+        if (errSousDossier) {
+            elSousDossier.innerHTML = `<p style="color:var(--danger);">Erreur : ${errSousDossier.message}</p>`;
+        } else if (!filesSousDossier || filesSousDossier.length === 0) {
+            elSousDossier.innerHTML = `<p style="text-align:center; color:#7f8c8d; font-style:italic; padding:8px; background:#f8f9fa; border-radius:6px;">Le sous-répertoire est actuellement vide.</p>`;
+        } else {
+            elSousDossier.innerHTML = filesSousDossier.map(file => {
+                const dateCreation = file.created_at ? new Date(file.created_at).toLocaleString('fr-FR') : 'Inconnue';
+                const fileNameEscaped = file.name.replace(/'/g, "\\'");
+                const fullFilePath = `${dossierCourantPath}/${file.name}`;
+
+                return `
+                <div class="pdf-list-item" style="border-left: 4px solid var(--success);">
+                    <div class="pdf-info">
+                        <span class="pdf-name">📄 ${file.name}</span>
+                        <span class="pdf-date">🕒 ${dateCreation}</span>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn btn-pdf btn-sm" onclick="telechargerFichierDossier('${fullFilePath}', '${fileNameEscaped}', 'open')">👁 Consulter</button>
+                        <button class="btn btn-add btn-sm" onclick="telechargerFichierDossier('${fullFilePath}', '${fileNameEscaped}', 'download')">💾 Télécharger</button>
+                        <button class="btn btn-danger btn-sm" onclick="supprimerFichierDossier('${fullFilePath}', '${fileNameEscaped}')">🗑 Supprimer</button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+    }
+
+    async function ajouterDocumentDossier() {
+        const input = document.getElementById('inputFileDoc');
+        if (!input.files || input.files.length === 0) {
+            alert("Veuillez sélectionner un fichier à téléverser.");
+            return;
+        }
+
+        const file = input.files[0];
+
+        const prefixer = [];
+        if (document.getElementById('chkTypeINS').checked) prefixer.push('_INS');
+        if (document.getElementById('chkTypeREG').checked) prefixer.push('_REG');
+        if (document.getElementById('chkTypeATT').checked) prefixer.push('_ATT');
+        if (document.getElementById('chkTypePI').checked)  prefixer.push('_PI');
+
+        const chainePrefixe = prefixer.length > 0 ? prefixer.join('') + '_' : 'DIV_';
+
+        const nomFichierPropre = nettoyerNomFichier(file.name);
+        const cheminDestination = `${dossierCourantPath}/${chainePrefixe}${nomFichierPropre}`;
+        const btn = document.getElementById('btnUploadDoc');
+
+        btn.disabled = true;
+        btn.innerText = "Envoi...";
+
+        const { error } = await _supabase.storage
+            .from('inscriptions-securisees')
+            .upload(cheminDestination, file, { contentType: file.type, upsert: true });
+
+        btn.disabled = false;
+        btn.innerText = "📤 Envoyer";
+
         if (error) {
-            contenu.innerHTML = `<p style="color:var(--danger); text-align:center;">Erreur lors du chargement : ${error.message}</p>`;
-            return;
+            alert("❌ Erreur lors de l'envoi : " + error.message);
+        } else {
+            input.value = "";
+            await rafraichirListeFichiersDossier();
         }
-
-        const nomFiltre = nomParticipant.toUpperCase().trim();
-        const pdfsMatch = data.filter(item => {
-            if (!item.name || !item.name.toLowerCase().endsWith('.pdf')) return false;
-            return item.name.toUpperCase().includes(nomFiltre);
-        });
-
-        if (pdfsMatch.length === 0) {
-            contenu.innerHTML = `<p style="text-align:center; color:#7f8c8d; padding:20px;">Aucun fichier PDF trouvé pour <b>${nomParticipant}</b>.</p>`;
-            return;
-        }
-
-        contenu.innerHTML = pdfsMatch.map(file => {
-            const dateCreation = file.created_at ? new Date(file.created_at).toLocaleString('fr-FR') : 'Date inconnue';
-            const fileNameEscaped = file.name.replace(/'/g, "\\'");
-
-            return `
-            <div class="pdf-list-item">
-                <div class="pdf-info">
-                    <span class="pdf-name">📄 ${file.name}</span>
-                    <span class="pdf-date">🕒 Créé le : ${dateCreation}</span>
-                </div>
-                <div style="display:flex; gap:6px;">
-                    <button class="btn btn-pdf btn-sm" onclick="actionPdf('${fileNameEscaped}', 'open')">👁 Consulter</button>
-                    <button class="btn btn-add btn-sm" onclick="actionPdf('${fileNameEscaped}', 'download')">💾 Télécharger</button>
-                </div>
-            </div>
-            `;
-        }).join('');
     }
 
-    function fermerModalePdf() {
-        document.getElementById('modalListePdf').style.display = 'none';
-    }
-
-    async function actionPdf(filename, mode) {
+    async function telechargerFichierDossier(fullPath, fileName, mode) {
         const { data, error } = await _supabase.storage
             .from('inscriptions-securisees')
-            .createSignedUrl(filename, 60);
+            .createSignedUrl(fullPath, 60);
 
         if (error || !data?.signedUrl) {
-            alert("Erreur lors de la génération du lien d'accès : " + (error ? error.message : "Introuvable"));
+            alert("Erreur de génération du lien : " + (error ? error.message : "Introuvable"));
             return;
         }
 
@@ -494,10 +695,26 @@
         } else if (mode === 'download') {
             const a = document.createElement('a');
             a.href = data.signedUrl;
-            a.download = filename;
+            a.download = fileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+        }
+    }
+
+    async function supprimerFichierDossier(fullPath, fileName) {
+        if (!confirm(`Voulez-vous vraiment supprimer définitivement le fichier "${fileName}" ?`)) {
+            return;
+        }
+
+        const { error } = await _supabase.storage
+            .from('inscriptions-securisees')
+            .remove([fullPath]);
+
+        if (error) {
+            alert("❌ Erreur de suppression : " + error.message);
+        } else {
+            await rafraichirListeFichiersDossier();
         }
     }
 
@@ -538,7 +755,8 @@
             typeEmplacement: res.type_emplacement || 'Extérieur',
             estMembre: p.est_membre || false,
             totalPrix: String(res.total_prix || '12'),
-            optionVehicule: res.option_vehicule || 'Sans'
+            optionVehicule: res.option_vehicule || 'Sans',
+            resId: res.id
         };
 
         await genererFormulairePDF(infoPdf);
@@ -617,20 +835,23 @@
             const pdfBytes = await pdfDoc.save();
             const blob = new Blob([pdfBytes], { type: "application/pdf" });
             const horodatage = Date.now();
-            const nomFichier = `2026_${donnees.nom.toUpperCase()}_${horodatage}.pdf`;
+            const nomFichier = `2026_${nettoyerNomFichier(donnees.nom.toUpperCase())}_${horodatage}.pdf`;
 
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = nomFichier;
             link.click();
 
+            const dossierNom = construireNomDossier(donnees.resId, donnees.nom);
+            const cheminStockage = `${dossierNom}/${nomFichier}`;
+
             const { error } = await _supabase.storage
                 .from('inscriptions-securisees')
-                .upload(nomFichier, blob, { contentType: 'application/pdf', upsert: false });
+                .upload(cheminStockage, blob, { contentType: 'application/pdf', upsert: false });
 
             if (error) console.error("Erreur de sauvegarde Storage :", error);
             else {
-                alert("✅ PDF régénéré, téléchargé et enregistré dans le Storage.");
+                alert(`✅ PDF régénéré et déposé dans le sous-dossier : ${dossierNom}`);
             }
 
         } catch (err) {
