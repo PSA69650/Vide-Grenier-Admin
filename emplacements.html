@@ -23,8 +23,9 @@
         .btn-back { background: #7f8c8d; text-decoration: none; display: inline-block; margin-bottom: 10px; font-size: 0.8rem; }
 
         .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: white; margin: 10% auto; padding: 30px; border-radius: 10px; max-width: 450px; }
-        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .modal-content { background: white; margin: 5% auto; padding: 30px; border-radius: 10px; max-width: 450px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .form-row { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
@@ -39,9 +40,10 @@
     <table>
         <thead>
             <tr>
-                <th>Zone / Allée</th>
-                <th>Numéro</th>
-                <th>Taille (m)</th>
+                <th>N° Place</th>
+                <th>Type</th>
+                <th>Ligne / Col.</th>
+                <th>Description</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -56,9 +58,36 @@
     <div class="modal-content">
         <h3 id="modalTitre">Nouvel Emplacement</h3>
         <input type="hidden" id="empId">
-        <input type="text" id="empZone" placeholder="Zone (ex: Allée A)">
-        <input type="text" id="empNumero" placeholder="Numéro de place">
-        <input type="number" id="empTaille" placeholder="Taille en mètres">
+        
+        <label>Numérotation :</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <input type="number" id="empNumerotation" placeholder="Ex: 12" style="margin: 0;">
+            <button type="button" class="btn" style="background: var(--primary); white-space: nowrap;" onclick="proposerSuivant()">
+                ⚡ Max + 1
+            </button>
+        </div>
+
+        <label>Type :</label>
+        <select id="empType">
+            <option value="">-- Sélectionner un type --</option>
+            <option value="Intérieur">Intérieur</option>
+            <option value="Extérieur">Extérieur</option>
+        </select>
+
+        <div class="form-row">
+            <div>
+                <label>Ligne :</label>
+                <input type="number" id="empLigne" placeholder="Ex: 1">
+            </div>
+            <div>
+                <label>Colonne :</label>
+                <input type="number" id="empColonne" placeholder="Ex: 4">
+            </div>
+        </div>
+
+        <label>Description :</label>
+        <textarea id="empDescription" rows="3" placeholder="Informations complémentaires..."></textarea>
+
         <div style="text-align: right; margin-top: 15px;">
             <button class="btn" style="background:#bdc3c7;" onclick="fermerModale()">Annuler</button>
             <button class="btn btn-add" onclick="enregistrerEmplacement()">Enregistrer</button>
@@ -80,34 +109,58 @@
     };
 
     async function chargerEmplacements() {
-        const { data, error } = await _supabase.from('emplacements').select('*').order('zone').order('numero_emplacement');
+        const { data, error } = await _supabase.from('emplacements').select('*').order('Numerotation', { ascending: true });
         if (error) return alert(error.message);
         cacheEmplacements = data;
         
         document.getElementById('listeEmplacements').innerHTML = data.map(e => `
             <tr>
-                <td><b>${e.zone}</b></td>
-                <td>${e.numero_emplacement}</td>
-                <td>${e.taille} m</td>
+                <td><b>${e.Numerotation ?? '-'}</b></td>
+                <td>${e.type || '-'}</td>
+                <td>L:${e.ligne ?? '-'} / C:${e.colonne ?? '-'}</td>
+                <td>${e.description || ''}</td>
                 <td>
-                    <button class="btn btn-edit" onclick="editer('${e.id}')">✏️</button>
-                    <button class="btn btn-delete" onclick="supprimer('${e.id}')">🗑️</button>
+                    <button class="btn btn-edit" onclick="editer(${e.id})">✏️</button>
+                    <button class="btn btn-delete" onclick="supprimer(${e.id})">🗑️</button>
                 </td>
             </tr>
         `).join('');
     }
 
+    function proposerSuivant() {
+        if (cacheEmplacements && cacheEmplacements.length > 0) {
+            const maxNum = cacheEmplacements.reduce((max, item) => {
+                const num = parseInt(item.Numerotation, 10);
+                return (!isNaN(num) && num > max) ? num : max;
+            }, 0);
+            document.getElementById('empNumerotation').value = maxNum + 1;
+        } else {
+            document.getElementById('empNumerotation').value = 1;
+        }
+    }
+
     async function enregistrerEmplacement() {
         const id = document.getElementById('empId').value;
+        const numVal = document.getElementById('empNumerotation').value;
+        const ligneVal = document.getElementById('empLigne').value;
+        const colVal = document.getElementById('empColonne').value;
+        const typeVal = document.getElementById('empType').value;
+
         const payload = {
-            zone: document.getElementById('empZone').value,
-            numero_emplacement: document.getElementById('empNumero').value,
-            taille: parseFloat(document.getElementById('empTaille').value)
+            type: typeVal !== "" ? typeVal : null,
+            description: document.getElementById('empDescription').value || null,
+            Numerotation: numVal !== "" ? parseInt(numVal, 10) : null,
+            ligne: ligneVal !== "" ? parseInt(ligneVal, 10) : null,
+            colonne: colVal !== "" ? parseInt(colVal, 10) : null
         };
 
-        const { error } = id 
-            ? await _supabase.from('emplacements').update(payload).eq('id', id)
-            : await _supabase.from('emplacements').insert([payload]);
+        let error;
+
+        if (id) {
+            ({ error } = await _supabase.from('emplacements').update(payload).eq('id', id));
+        } else {
+            ({ error } = await _supabase.from('emplacements').insert([payload]));
+        }
 
         if (error) alert("Erreur : " + error.message);
         else { fermerModale(); chargerEmplacements(); }
@@ -123,20 +176,25 @@
     function ouvrirModale() {
         document.getElementById('modalEmp').style.display = 'block';
         document.getElementById('empId').value = "";
-        document.getElementById('empZone').value = "";
-        document.getElementById('empNumero').value = "";
-        document.getElementById('empTaille').value = "";
+        document.getElementById('empType').value = "";
+        document.getElementById('empDescription').value = "";
+        document.getElementById('empNumerotation').value = "";
+        document.getElementById('empLigne').value = "";
+        document.getElementById('empColonne').value = "";
         document.getElementById('modalTitre').innerText = "Nouvel Emplacement";
     }
 
     function editer(id) {
         const e = cacheEmplacements.find(x => x.id === id);
+        if (!e) return;
         ouvrirModale();
-        document.getElementById('modalTitre').innerText = "Modifier la place " + e.numero_emplacement;
+        document.getElementById('modalTitre').innerText = "Modifier la place " + (e.Numerotation ?? e.id);
         document.getElementById('empId').value = e.id;
-        document.getElementById('empZone').value = e.zone;
-        document.getElementById('empNumero').value = e.numero_emplacement;
-        document.getElementById('empTaille').value = e.taille;
+        document.getElementById('empType').value = e.type || "";
+        document.getElementById('empDescription').value = e.description || "";
+        document.getElementById('empNumerotation').value = e.Numerotation ?? "";
+        document.getElementById('empLigne').value = e.ligne ?? "";
+        document.getElementById('empColonne').value = e.colonne ?? "";
     }
 
     function fermerModale() { document.getElementById('modalEmp').style.display = 'none'; }
