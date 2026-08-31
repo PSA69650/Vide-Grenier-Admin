@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire d'Emplacements - Plan Intérieur</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Ajout de HTML2Canvas pour la fonctionnalité d'export d'image -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #2ecc71;
+            --warning-color: #e67e22;
+            --danger-color: #e74c3c;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+            --text-color: #212529;
+            --seat-available: #2ecc71;
+            --seat-reserved: #e67e22;
+            --seat-occupied: #e74c3c;
+            --seat-blocked: #95a5a6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; min-height: 100vh; }
+
+        header { background-color: var(--primary-color); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .main-container { display: flex; flex: 1; gap: 20px; padding: 20px; max-width: 1800px; margin: 0 auto; width: 100%; }
+
+        .map-section {
+            flex: 3; background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex; flex-direction: column; align-items: center; overflow-x: auto;
+        }
+
+        .controls-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .legend { display: flex; gap: 15px; font-size: 0.9rem; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-color { width: 16px; height: 16px; border-radius: 3px; }
+
+        .stage-layout {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            max-width: 100%;
+            overflow-x: auto;
+            padding: 10px;
+            background-color: var(--card-bg);
+        }
+
+        .side-element {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            border-radius: 6px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            padding: 10px;
+            min-height: 300px;
+            user-select: none;
+        }
+
+        .gradin { background-color: #8e44ad; }
+        .scene { background-color: #e67e22; }
+
+        .grid-wrapper {
+            position: relative;
+            overflow: auto;
+            background: #f1f3f5;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .grid-container {
+            display: grid !important;
+            gap: 6px 12px;
+        }
+
+        .cell-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+        }
+
+        .cell {
+            width: 38px !important;
+            height: 32px !important;
+            min-width: 38px !important;
+            min-height: 32px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-radius: 4px;
+            user-select: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .cell.spot { cursor: pointer; color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .cell.spot:hover { transform: scale(1.1); z-index: 5; box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
+
+        .cell.spot.status-disponible { background-color: var(--seat-available); }
+        .cell.spot.status-reserve { background-color: var(--seat-reserved); }
+        .cell.spot.status-occupe { background-color: var(--seat-occupied); }
+        .cell.spot.status-bloque { background-color: var(--seat-blocked); }
+        
+        .cell.selected { outline: 3px solid #2980b9; transform: scale(1.1); z-index: 6; }
+        .cell.multi-selected { outline: 3px dashed #8e44ad; z-index: 6; }
+
+        .occupant-label {
+            font-size: 0.75rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 110px;
+            color: #2c3e50;
+            font-weight: 600;
+            background: rgba(255,255,255,0.95);
+            padding: 2px 5px;
+            border-radius: 3px;
+            border: 1px solid #ced4da;
+            line-height: 1.2;
+        }
+
+        .sidebar { flex: 1; min-width: 360px; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .card h2 { font-size: 1.1rem; margin-bottom: 15px; color: var(--primary-color); border-bottom: 2px solid var(--bg-color); padding-bottom: 8px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .stat-box { padding: 12px; border-radius: 6px; background: var(--bg-color); text-align: center; }
+        .stat-value { font-size: 1.4rem; font-weight: bold; }
+        .stat-label { font-size: 0.75rem; color: #6c757d; text-transform: uppercase; }
+
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 2px solid var(--bg-color); }
+        .tab-btn { padding: 8px 12px; border: none; background: none; font-weight: 600; cursor: pointer; color: #6c757d; }
+        .tab-btn.active { color: var(--secondary-color); border-bottom: 2px solid var(--secondary-color); margin-bottom: -2px; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.85rem; margin-bottom: 4px; font-weight: 600; }
+        .form-control { width: 100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.9rem; }
+        .form-control[readonly] { background-color: #e9ecef; }
+        
+        .alert-error { background-color: #f8d7da; color: #721c24; padding: 10px 14px; border-radius: 4px; border: 1px solid #f5c6cb; font-size: 0.85rem; margin-bottom: 12px; display: none; }
+        .alert-success { background-color: #d4edda; color: #155724; padding: 10px 14px; border-radius: 4px; border: 1px solid #c3e6cb; font-size: 0.85rem; margin-bottom: 12px; display: none; }
+
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.9rem; width: 100%; margin-top: 5px; }
+        .btn-primary { background-color: var(--secondary-color); color: white; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-success { background-color: var(--success-color); color: white; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-color); }
+
+        .btn-back { background: #7f8c8d; text-decoration: none; display: inline-block; margin-bottom: 10px; font-size: 0.8rem; color: white; padding: 6px 12px; border-radius: 4px; }
+
+        .spots-preview-list { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+        .badge-spot { background: #e9ecef; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; font-weight: bold; }
+
+        @media (max-width: 992px) { .main-container { flex-direction: column; } }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <a href="menu_admin.html" class="btn-back">⬅ Retour Menu</a>
+            <h1>Plan Intérieur - Gestion des Emplacements</h1>
+        </div>
+        <div>Total Intérieur: <strong id="total-count">0</strong> emplacements</div>
+    </header>
+
+    <div class="main-container">
+        <!-- Zone Plan -->
+        <div class="map-section">
+            <div class="controls-bar">
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color" style="background: var(--seat-available);"></div><span>Disponible</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: var(--seat-reserved);"></div><span>Réservé</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: var(--seat-occupied);"></div><span>Occupé</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: var(--seat-blocked);"></div><span>Bloqué</span></div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="exportPlanAsImage()" style="width: auto;">📷 Exporter Plan (PNG)</button>
+                    <button class="btn btn-outline" onclick="chargerDonneesSupabase()" style="width: auto;">🔄 Rafraîchir</button>
+                </div>
+            </div>
+
+            <div class="stage-layout" id="exportable-stage-layout">
+                <div class="side-element gradin">🎭 GRADIN</div>
+                
+                <div class="grid-wrapper">
+                    <div class="grid-container" id="grid-map"></div>
+                </div>
+
+                <div class="side-element scene">🎬 SCÈNE</div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="card">
+                <h2>Statistiques Globales</h2>
+                <div class="stats-grid">
+                    <div class="stat-box"><div class="stat-value" id="stat-disponible" style="color: var(--seat-available);">0</div><div class="stat-label">Disponibles</div></div>
+                    <div class="stat-box"><div class="stat-value" id="stat-reserve" style="color: var(--seat-reserved);">0</div><div class="stat-label">Réservés</div></div>
+                    <div class="stat-box"><div class="stat-value" id="stat-occupe" style="color: var(--seat-occupied);">0</div><div class="stat-label">Occupés</div></div>
+                    <div class="stat-box"><div class="stat-value" id="stat-bloque" style="color: var(--seat-blocked);">0</div><div class="stat-label">Bloqués</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Recherche Rapide</h2>
+                <input type="number" id="search-input" class="form-control" placeholder="Entrez un numéro..." oninput="searchSpot()">
+            </div>
+
+            <div class="card">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('single')">Case Unique</button>
+                    <button class="tab-btn" onclick="switchTab('multi')">Affecter Réservation</button>
+                </div>
+
+                <!-- Onglet 1: Sélection unique -->
+                <div id="tab-single" class="tab-content active">
+                    <div id="no-selection-msg" style="color: #6c757d; font-style: italic; text-align: center; padding: 20px 0;">
+                        Cliquez sur un emplacement du plan pour le gérer.
+                    </div>
+
+                    <div id="details-panel" style="display:none;">
+                        <div style="text-align: center; margin-bottom: 15px;">
+                            <span style="font-size: 0.9rem; color: #6c757d;">Emplacement N°</span>
+                            <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);" id="selected-spot-id">--</div>
+                        </div>
+
+                        <form onsubmit="saveSingleSpotDetails(event)">
+                            <div class="form-group">
+                                <label for="spot-status">Statut (Etat)</label>
+                                <select id="spot-status" class="form-control">
+                                    <option value="disponible">Disponible</option>
+                                    <option value="reserve">Réservé</option>
+                                    <option value="occupe">Occupé</option>
+                                    <option value="bloque">Bloqué / Indisponible</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="spot-occupant">Participant / Occupant</label>
+                                <input type="text" id="spot-occupant" class="form-control" readonly placeholder="Associé à la réservation">
+                            </div>
+                            <div class="form-group">
+                                <label for="spot-notes">Commentaire réservation</label>
+                                <textarea id="spot-notes" class="form-control" rows="2" placeholder="Commentaire..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Enregistrer dans Supabase</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Onglet 2: Affectation de réservation groupée -->
+                <div id="tab-multi" class="tab-content">
+                    <div id="multi-alert-error" class="alert-error"></div>
+                    <div id="multi-alert-success" class="alert-success"></div>
+
+                    <form onsubmit="saveMultiReservation(event)">
+                        <div class="form-group">
+                            <label for="multi-resa-select">Sélectionner la Réservation (Intérieur)</label>
+                            <select id="multi-resa-select" class="form-control" onchange="onReservationChange()">
+                                <option value="">-- Choisir une réservation --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="multi-start-spot">Emplacement de départ (N°)</label>
+                            <input type="number" id="multi-start-spot" class="form-control" placeholder="Ex: 1" onchange="previewMultiSelection()">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="multi-count">Nombre de mètres (Figé)</label>
+                            <input type="number" id="multi-count" class="form-control" readonly placeholder="Nombre de mètres...">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="multi-direction">Direction de la sélection</label>
+                            <select id="multi-direction" class="form-control" onchange="previewMultiSelection()">
+                                <option value="down">Vers le bas (lignes suivantes)</option>
+                                <option value="up">Vers le haut (lignes précédentes)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="multi-notes">Commentaire de la réservation</label>
+                            <textarea id="multi-notes" class="form-control" rows="2" readonly placeholder="Commentaire de la réservation..."></textarea>
+                        </div>
+
+                        <div id="multi-preview-box" style="margin-bottom: 12px; display: none;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">Emplacements impactés :</label>
+                            <div class="spots-preview-list" id="multi-spots-badges"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="multi-status">Statut à appliquer</label>
+                            <select id="multi-status" class="form-control">
+                                <option value="reserve">Réservé</option>
+                                <option value="occupe">Occupé</option>
+                                <option value="bloque">Bloqué</option>
+                                <option value="disponible">Disponible</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Affecter la Réservation</button>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://dawnqgtitjrqmqnnrhky.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhd25xZ3RpdGpycW1xbm5yaGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMDIxMjcsImV4cCI6MjA5Mjc3ODEyN30.M4KyikZlZ8Sb_2sTA3O4GCloLktTH4Z8p789cf89FUU";
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let spotsData = {};
+        let reservationsInt = [];
+        let selectedSpot = null;
+        let previewSpotsList = [];
+        let maxRow = 0;
+        let maxCol = 0;
+
+        window.onload = async () => {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) {
+                window.location.replace("admin.html");
+                return;
+            }
+            chargerDonneesSupabase();
+        };
+
+        async function chargerDonneesSupabase() {
+            // Récupérer les emplacements de type 'Intérieur'
+            const { data: dbEmplacements, error: errEmp } = await _supabase
+                .from('emplacements')
+                .select('*')
+                .eq('type', 'Intérieur');
+
+            if (errEmp) return alert("Erreur emplacements : " + errEmp.message);
+
+            // Récupérer les réservations d'intérieur EN EXCLUANT les réservations annulées ou refusées
+            const { data: dbReservations, error: errResa } = await _supabase
+                .from('reservations')
+                .select('*, participants(*)')
+                .eq('type_emplacement', 'Intérieur')
+                .not('statut_dossier', 'in', '("Annulée","Annulé","Refusée","Refusé")');
+
+            if (errResa) return alert("Erreur réservations : " + errResa.message);
+            reservationsInt = dbReservations || [];
+
+            // Récupérer les liaisons resa_emplacement
+            const { data: dbLiaisons, error: errLiaison } = await _supabase
+                .from('resa_emplacement')
+                .select('id, id_emp, id_resa, Etat, reservations(*, participants(*))');
+
+            if (errLiaison) return alert("Erreur liaisons : " + errLiaison.message);
+
+            document.getElementById('total-count').innerText = dbEmplacements.length;
+
+            spotsData = {};
+            maxRow = 0;
+            maxCol = 0;
+
+            dbEmplacements.forEach(emp => {
+                const num = String(emp.Numerotation);
+                const ligne = parseInt(emp.ligne, 10);
+                const colonne = parseInt(emp.colonne, 10);
+
+                if (ligne > maxRow) maxRow = ligne;
+                if (colonne > maxCol) maxCol = colonne;
+
+                const liaison = dbLiaisons.find(l => l.id_emp === emp.id);
+                
+                // Exclure la liaison si la réservation liée a été annulée/refusée
+                let resa = liaison ? liaison.reservations : null;
+                if (resa && ['Annulée', 'Annulé', 'Refusée', 'Refusé'].includes(resa.statut_dossier)) {
+                    resa = null;
+                }
+                
+                const part = resa ? resa.participants : null;
+                const nomOccupant = part ? `${part.nom || ''} ${part.prenom || ''}`.trim() : '';
+
+                spotsData[num] = {
+                    id_db: emp.id,
+                    num: num,
+                    ligne: ligne,
+                    colonne: colonne,
+                    status: (liaison && resa) ? (liaison.Etat || 'reserve') : 'disponible',
+                    occupant: nomOccupant,
+                    notes: resa ? (resa.commentaire || '') : '',
+                    reservation_id: resa ? resa.id : null,
+                    liaison_id: (liaison && resa) ? liaison.id : null
+                };
+            });
+
+            populateReservationDropdown();
+            renderGrid();
+        }
+
+        function populateReservationDropdown() {
+            const selectEl = document.getElementById('multi-resa-select');
+            selectEl.innerHTML = '<option value="">-- Choisir une réservation --</option>';
+
+            // 1. Extraire la liste de tous les id_resa déjà affectés dans spotsData
+            const assignedResaIds = new Set(
+                Object.values(spotsData)
+                    .map(spot => spot.reservation_id)
+                    .filter(id => id !== null && id !== undefined)
+            );
+
+            // 2. Filtrer pour ne garder QUE les réservations non encore affectées
+            const unassignedReservations = reservationsInt.filter(r => !assignedResaIds.has(r.id));
+
+            // 3. Trier par nom de famille (puis prénom)
+            unassignedReservations.sort((a, b) => {
+                const nomA = (a.participants?.nom || '').toLowerCase();
+                const nomB = (b.participants?.nom || '').toLowerCase();
+                if (nomA < nomB) return -1;
+                if (nomA > nomB) return 1;
+                
+                const prenomA = (a.participants?.prenom || '').toLowerCase();
+                const prenomB = (b.participants?.prenom || '').toLowerCase();
+                return prenomA.localeCompare(prenomB);
+            });
+
+            // 4. Peupler le menu déroulant avec l'état de la réservation
+            unassignedReservations.forEach(r => {
+                const part = r.participants;
+                const nomPart = part ? `${part.nom || ''} ${part.prenom || ''}`.trim() : 'Inconnu';
+                const metres = r.metrage_reserve || 1;
+                
+                const etatResa = r.statut_dossier || 'Non trouvé-erreur';
+
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.innerText = `${nomPart} (#${r.id}) - ${metres}m - [État: ${etatResa}]`;
+                selectEl.appendChild(opt);
+            });
+        }
+
+        function onReservationChange() {
+            const resaId = document.getElementById('multi-resa-select').value;
+            const resa = reservationsInt.find(r => String(r.id) === String(resaId));
+
+            if (resa) {
+                const metres = resa.metrage_reserve || 1;
+                document.getElementById('multi-count').value = metres;
+                document.getElementById('multi-notes').value = resa.commentaire || '';
+            } else {
+                document.getElementById('multi-count').value = '';
+                document.getElementById('multi-notes').value = '';
+            }
+
+            previewMultiSelection();
+        }
+
+        function renderGrid() {
+            const gridEl = document.getElementById('grid-map');
+            if (!gridEl) return;
+            gridEl.innerHTML = '';
+
+            gridEl.style.gridTemplateColumns = `repeat(${maxCol}, minmax(130px, auto))`;
+            gridEl.style.gridTemplateRows = `repeat(${maxRow}, 34px)`;
+
+            Object.values(spotsData).forEach(spot => {
+                const cellWrapper = document.createElement('div');
+                cellWrapper.className = 'cell-wrapper';
+                cellWrapper.style.gridColumnStart = spot.colonne;
+                cellWrapper.style.gridRowStart = spot.ligne;
+
+                const cell = document.createElement('div');
+                cell.className = 'cell spot status-' + (spot.status || 'disponible');
+                cell.innerText = spot.num;
+                cell.setAttribute('data-id', spot.num);
+
+                if (selectedSpot === spot.num) cell.classList.add('selected');
+                if (previewSpotsList.includes(spot.num)) cell.classList.add('multi-selected');
+
+                cell.onclick = () => selectSpot(spot.num);
+
+                cellWrapper.appendChild(cell);
+
+                if (spot.occupant && spot.occupant.trim() !== '') {
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'occupant-label';
+                    nameSpan.innerText = spot.occupant.trim();
+                    nameSpan.title = `${spot.occupant.trim()} (${spot.status})`;
+                    cellWrapper.appendChild(nameSpan);
+                }
+
+                gridEl.appendChild(cellWrapper);
+            });
+
+            updateStats();
+        }
+
+        function selectSpot(id) {
+            selectedSpot = String(id);
+            document.getElementById('multi-start-spot').value = selectedSpot;
+            previewMultiSelection();
+
+            document.querySelectorAll('.cell.spot').forEach(el => {
+                if (el.getAttribute('data-id') === selectedSpot) el.classList.add('selected');
+                else el.classList.remove('selected');
+            });
+
+            const spot = spotsData[selectedSpot];
+            if (spot) {
+                document.getElementById('no-selection-msg').style.display = 'none';
+                document.getElementById('details-panel').style.display = 'block';
+                document.getElementById('selected-spot-id').innerText = spot.num;
+                document.getElementById('spot-status').value = spot.status || 'disponible';
+                document.getElementById('spot-occupant').value = spot.occupant || '';
+                document.getElementById('spot-notes').value = spot.notes || '';
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            if (tab === 'single') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('tab-single').classList.add('active');
+            } else {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('tab-multi').classList.add('active');
+                previewMultiSelection();
+            }
+        }
+
+        function getConsecutiveSpotsInColumn(startId, count, direction = 'down') {
+            const startSpot = spotsData[startId];
+            if (!startSpot) return { error: "Emplacement de départ introuvable.", spots: [] };
+
+            const targetCol = startSpot.colonne;
+
+            const colSpotsInOrder = Object.values(spotsData)
+                .filter(s => s.colonne === targetCol)
+                .sort((a, b) => a.ligne - b.ligne);
+
+            const startIndex = colSpotsInOrder.findIndex(item => item.num === startId);
+            if (startIndex === -1) return { error: "Emplacement introuvable sur la colonne.", spots: [] };
+
+            let selected = [];
+            if (direction === 'up') {
+                if (startIndex - count + 1 < 0) {
+                    return { error: `Impossible de sélectionner ${count} case(s) : seulement ${startIndex + 1} emplacement(s) disponible(s) vers le haut.`, spots: [] };
+                }
+                selected = colSpotsInOrder.slice(startIndex - count + 1, startIndex + 1).reverse();
+            } else {
+                if (startIndex + count > colSpotsInOrder.length) {
+                    return { error: `Impossible de sélectionner ${count} case(s) : seulement ${colSpotsInOrder.length - startIndex} emplacement(s) disponible(s) vers le bas.`, spots: [] };
+                }
+                selected = colSpotsInOrder.slice(startIndex, startIndex + count);
+            }
+
+            return { error: null, spots: selected.map(s => s.num) };
+        }
+
+        function previewMultiSelection() {
+            const startId = document.getElementById('multi-start-spot').value.trim();
+            const count = parseInt(document.getElementById('multi-count').value, 10) || 0;
+            const direction = document.getElementById('multi-direction').value;
+            const errBox = document.getElementById('multi-alert-error');
+            const successBox = document.getElementById('multi-alert-success');
+            const previewBox = document.getElementById('multi-preview-box');
+            const badgesBox = document.getElementById('multi-spots-badges');
+
+            errBox.style.display = 'none';
+            successBox.style.display = 'none';
+            previewSpotsList = [];
+
+            if (!startId || !spotsData[startId] || count <= 0) {
+                previewBox.style.display = 'none';
+                renderGrid();
+                return;
+            }
+
+            const result = getConsecutiveSpotsInColumn(startId, count, direction);
+            if (result.error) {
+                errBox.innerText = "⚠️ " + result.error;
+                errBox.style.display = 'block';
+                previewBox.style.display = 'none';
+                renderGrid();
+                return;
+            }
+
+            previewSpotsList = result.spots;
+            badgesBox.innerHTML = result.spots.map(id => {
+                const st = spotsData[id] ? spotsData[id].status : 'disponible';
+                const color = st === 'disponible' ? '#2ecc71' : '#e74c3c';
+                return `<span class="badge-spot" style="border:1px solid ${color}">${id}</span>`;
+            }).join('');
+            previewBox.style.display = 'block';
+
+            renderGrid();
+        }
+
+        async function saveSingleSpotDetails(e) {
+            e.preventDefault();
+            if (!selectedSpot || !spotsData[selectedSpot]) return;
+
+            const spot = spotsData[selectedSpot];
+            const newStatus = document.getElementById('spot-status').value;
+            const newNotes = document.getElementById('spot-notes').value.trim();
+
+            if (newStatus === 'disponible') {
+                if (spot.liaison_id) {
+                    await _supabase.from('resa_emplacement').delete().eq('id_emp', spot.id_db);
+                }
+            } else {
+                if (spot.liaison_id) {
+                    await _supabase.from('resa_emplacement').update({ Etat: newStatus }).eq('id_emp', spot.id_db);
+                    if (spot.reservation_id) {
+                        await _supabase.from('reservations').update({ commentaire: newNotes }).eq('id', spot.reservation_id);
+                    }
+                } else {
+                    await _supabase.from('resa_emplacement').insert([{
+                        id_emp: spot.id_db,
+                        id_resa: null,
+                        Etat: newStatus
+                    }]);
+                }
+            }
+
+            await chargerDonneesSupabase();
+            alert("Emplacement mis à jour !");
+        }
+
+        async function saveMultiReservation(e) {
+            e.preventDefault();
+            const resaId = document.getElementById('multi-resa-select').value;
+            const startId = document.getElementById('multi-start-spot').value.trim();
+            const count = parseInt(document.getElementById('multi-count').value, 10) || 0;
+            const direction = document.getElementById('multi-direction').value;
+            const newStatus = document.getElementById('multi-status').value;
+
+            const errBox = document.getElementById('multi-alert-error');
+            const successBox = document.getElementById('multi-alert-success');
+
+            errBox.style.display = 'none';
+            successBox.style.display = 'none';
+
+            if (!resaId) {
+                errBox.innerText = "⚠️ Veuillez sélectionner une réservation.";
+                errBox.style.display = 'block';
+                return;
+            }
+
+            const result = getConsecutiveSpotsInColumn(startId, count, direction);
+            if (result.error) {
+                errBox.innerText = "⚠️ " + result.error;
+                errBox.style.display = 'block';
+                return;
+            }
+
+            for (let id of result.spots) {
+                const spot = spotsData[id];
+                if (spot) {
+                    if (newStatus === 'disponible') {
+                        if (spot.liaison_id) {
+                            await _supabase.from('resa_emplacement').delete().eq('id_emp', spot.id_db);
+                        }
+                    } else {
+                        if (spot.liaison_id) {
+                            await _supabase.from('resa_emplacement').update({
+                                id_resa: resaId,
+                                Etat: newStatus
+                            }).eq('id_emp', spot.id_db);
+                        } else {
+                            await _supabase.from('resa_emplacement').insert([{
+                                id_emp: spot.id_db,
+                                id_resa: resaId,
+                                Etat: newStatus
+                            }]);
+                        }
+                    }
+                }
+            }
+
+            await chargerDonneesSupabase();
+
+            successBox.innerText = `✅ Succès : ${result.spots.length} emplacement(s) mis à jour pour la réservation #${resaId}.`;
+            successBox.style.display = 'block';
+        }
+
+        function updateStats() {
+            let stats = { disponible: 0, reserve: 0, occupe: 0, bloque: 0 };
+            Object.values(spotsData).forEach(spot => {
+                if (stats[spot.status] !== undefined) stats[spot.status]++;
+            });
+            document.getElementById('stat-disponible').innerText = stats.disponible;
+            document.getElementById('stat-reserve').innerText = stats.reserve;
+            document.getElementById('stat-occupe').innerText = stats.occupe;
+            document.getElementById('stat-bloque').innerText = stats.bloque;
+        }
+
+        function searchSpot() {
+            const query = document.getElementById('search-input').value.trim();
+            if (spotsData[query]) {
+                selectSpot(query);
+                const el = document.querySelector('.cell[data-id="' + query + '"]');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }
+        }
+
+        // Fonction pour exporter le plan d'emplacements en tant qu'image PNG
+        function exportPlanAsImage() {
+            const target = document.getElementById('exportable-stage-layout');
+            if (!target) return;
+
+            // Retirer la surbrillance éventuelle d'une cellule avant l'export
+            const activeSelected = selectedSpot;
+            selectedSpot = null;
+            renderGrid();
+
+            html2canvas(target, {
+                backgroundColor: '#ffffff',
+                scale: 2 // Améliore la résolution de l'image exportée
+            }).then(canvas => {
+                const link = document.createElement('a');
+                const today = new Date().toISOString().split('T')[0];
+                link.download = `plan_interieur_${today}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                // Restaurer la sélection active après l'exportation
+                if (activeSelected) {
+                    selectedSpot = activeSelected;
+                    renderGrid();
+                }
+            }).catch(err => {
+                alert("Erreur lors de la génération de l'image : " + err.message);
+            });
+        }
+    </script>
+</body>
+</html>
